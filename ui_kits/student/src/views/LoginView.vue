@@ -35,72 +35,21 @@
       </div>
     </div>
 
-    <!-- 管理员入口（右下角） -->
-    <button class="admin-corner" @click="showAdminModal = true">
+    <!-- 管理员入口（左下角） -->
+    <button class="admin-corner" @click="loginAdmin">
       <i class="ti ti-shield-lock" />
-      管理员登录
+      进入管理端
     </button>
-
-    <!-- 管理员弹窗 -->
-    <Transition name="fade">
-      <div v-if="showAdminModal" class="modal-mask" @click.self="showAdminModal = false">
-        <div class="admin-modal fade-up">
-          <div class="admin-modal-head">
-            <div style="display:flex;align-items:center;gap:.55rem">
-              <div class="admin-modal-icon"><i class="ti ti-shield-lock" /></div>
-              <div>
-                <div class="admin-modal-title">管理员登录</div>
-                <div class="admin-modal-sub">仅限平台管理人员使用</div>
-              </div>
-            </div>
-            <button class="modal-close" @click="showAdminModal = false"><i class="ti ti-x" /></button>
-          </div>
-
-          <form class="form" @submit.prevent="loginAdmin">
-            <div class="field" :class="{ 'has-value': form.username }">
-              <i class="ti ti-user field-icon" />
-              <input v-model="form.username" type="text" autocomplete="username" placeholder=" " required />
-              <label>账号</label>
-            </div>
-            <div class="field" :class="{ 'has-value': form.password }">
-              <i class="ti ti-lock field-icon" />
-              <input v-model="form.password" :type="showPwd ? 'text' : 'password'" autocomplete="current-password" placeholder=" " required />
-              <label>密码</label>
-              <button type="button" class="field-toggle" tabindex="-1" @click="showPwd = !showPwd">
-                <i :class="showPwd ? 'ti ti-eye-off' : 'ti ti-eye'" />
-              </button>
-            </div>
-            <div class="form-row">
-              <label class="remember">
-                <input v-model="form.remember" type="checkbox" />
-                <span class="checkbox-box"><i class="ti ti-check" /></span>
-                <span>记住我</span>
-              </label>
-              <a href="#" class="forgot">忘记密码？</a>
-            </div>
-            <button type="submit" class="btn-primary btn-gold">
-              <i class="ti ti-login-2" />
-              <span>登 录</span>
-            </button>
-          </form>
-        </div>
-      </div>
-    </Transition>
   </div>
 </template>
 
 <script setup>
-import { ref, reactive } from 'vue'
-import { useRouter } from 'vue-router'
+const beginLogin = (target) => {
+  window.location.assign(`/fudan/login?target=${target}`)
+}
 
-const router = useRouter()
-const showAdminModal = ref(false)
-const showPwd = ref(false)
-
-const form = reactive({ username: '', password: '', remember: false })
-
-const loginUIS = () => { router.push('/home') }
-const loginAdmin = () => { router.push('/admin') }
+const loginUIS = () => beginLogin('user')
+const loginAdmin = () => beginLogin('admin')
 </script>
 
 <style scoped>
@@ -169,7 +118,7 @@ const loginAdmin = () => { router.push('/admin') }
 
 /* ── 管理员角落入口 ── */
 .admin-corner {
-  position: fixed; right: 1.5rem; bottom: 1.5rem; z-index: 50;
+  position: fixed; left: 1.5rem; bottom: 1.5rem; z-index: 50;
   display: inline-flex; align-items: center; gap: .4rem;
   padding: .45rem .9rem; border-radius: var(--r-full);
   font-size: .75rem; font-weight: 500; font-family: var(--font-sans);
@@ -180,69 +129,6 @@ const loginAdmin = () => { router.push('/admin') }
 }
 .admin-corner:hover { color: var(--gold); border-color: rgba(184,135,30,.35); background: var(--gold-light); }
 .admin-corner i { font-size: .85rem; }
-
-/* ── 管理员弹窗 ── */
-.modal-mask {
-  position: fixed; inset: 0; background: rgba(0,0,0,.35);
-  display: flex; align-items: center; justify-content: center; z-index: 9999;
-}
-.admin-modal {
-  width: min(460px, 92vw); background: var(--bg-card);
-  border-radius: 20px; padding: 1.75rem 2rem 2rem;
-  box-shadow: 0 20px 50px rgba(28,26,24,.2);
-}
-.admin-modal-head {
-  display: flex; align-items: center; justify-content: space-between;
-  margin-bottom: 1.5rem;
-}
-.admin-modal-icon {
-  width: 40px; height: 40px; border-radius: 10px;
-  background: var(--gold-light); color: var(--gold);
-  display: flex; align-items: center; justify-content: center; font-size: 1.1rem;
-  border: 1px solid rgba(184,135,30,.25);
-}
-.admin-modal-title { font-size: .95rem; font-weight: 700; color: var(--ink); }
-.admin-modal-sub   { font-size: .72rem; color: var(--ink-3); margin-top: 2px; }
-.modal-close {
-  width: 30px; height: 30px; border-radius: 8px;
-  border: 1px solid var(--border); background: var(--bg-soft);
-  color: var(--ink-3); display: flex; align-items: center; justify-content: center;
-  cursor: pointer; font-size: .9rem; transition: all var(--t);
-}
-.modal-close:hover { background: var(--bg-sunken); color: var(--ink); }
-
-/* ── 表单 ── */
-.form { display: flex; flex-direction: column; gap: 1rem; }
-.field {
-  position: relative; background: var(--bg); border: 1px solid var(--border);
-  border-radius: 12px; transition: border-color var(--t), box-shadow var(--t), background var(--t);
-}
-.field input {
-  width: 100%; min-height: 56px; padding: 0 3.1rem 0 6.35rem;
-  background: transparent; border: none; outline: none;
-  font-family: var(--font-sans); font-size: 1rem; color: var(--ink); box-sizing: border-box;
-}
-.field label {
-  position: absolute; left: 2.7rem; top: 50%; transform: translateY(-50%);
-  width: 3.1rem; font-size: .9rem; color: var(--ink-3); font-weight: 600;
-  pointer-events: none; transition: color var(--t);
-}
-.field:focus-within label, .field.has-value label { color: var(--gold); }
-.field:focus-within { border-color: var(--gold); background: var(--bg-card); box-shadow: 0 0 0 3px var(--gold-light); }
-.field-icon { position: absolute; left: 1rem; top: 50%; transform: translateY(-50%); color: var(--ink-3); font-size: 1.1rem; transition: color var(--t); }
-.field:focus-within .field-icon { color: var(--gold); }
-.field-toggle { position: absolute; right: .65rem; top: 50%; transform: translateY(-50%); background: transparent; border: none; cursor: pointer; color: var(--ink-3); padding: .35rem; font-size: 1.05rem; border-radius: 6px; }
-.field-toggle:hover { color: var(--ink); }
-
-.form-row { display: flex; align-items: center; justify-content: space-between; margin-top: -.1rem; margin-bottom: .25rem; }
-.remember { display: flex; align-items: center; gap: .5rem; font-size: .82rem; color: var(--ink-2); cursor: pointer; user-select: none; }
-.remember input { display: none; }
-.checkbox-box { width: 17px; height: 17px; border: 1.5px solid var(--border); border-radius: 5px; display: flex; align-items: center; justify-content: center; background: var(--bg-card); transition: all var(--t); }
-.checkbox-box i { font-size: .78rem; color: #fff; opacity: 0; transition: opacity var(--t); }
-.remember input:checked + .checkbox-box { background: var(--gold); border-color: var(--gold); }
-.remember input:checked + .checkbox-box i { opacity: 1; }
-.forgot { font-size: .82rem; color: var(--gold); text-decoration: none; }
-.forgot:hover { text-decoration: underline; }
 
 /* ── 按钮 ── */
 .btn-primary {
@@ -260,8 +146,6 @@ const loginAdmin = () => { router.push('/admin') }
 .btn-primary:hover::after { transform: translateX(100%); }
 .btn-red  { background: var(--red);  box-shadow: 0 8px 18px rgba(140,21,27,.25); }
 .btn-red:hover  { background: var(--red-hover); transform: translateY(-1px); box-shadow: 0 10px 22px rgba(140,21,27,.32); }
-.btn-gold { background: var(--gold); box-shadow: 0 8px 18px rgba(184,135,30,.25); }
-.btn-gold:hover { filter: brightness(1.08); transform: translateY(-1px); box-shadow: 0 10px 22px rgba(184,135,30,.32); }
 
 /* ── 动画 ── */
 .fade-enter-active, .fade-leave-active { transition: opacity .2s ease; }
@@ -272,6 +156,6 @@ const loginAdmin = () => { router.push('/admin') }
 @media (max-width: 560px) {
   .login-card { padding: 1.5rem 1.4rem 1.4rem; }
   .login-zh { font-size: 2rem; }
-  .admin-corner { right: 1rem; bottom: 1rem; }
+  .admin-corner { left: 1rem; bottom: 1rem; }
 }
 </style>

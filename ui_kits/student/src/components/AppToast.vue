@@ -1,6 +1,6 @@
 <template>
   <Teleport to="body">
-    <div class="toast-wrap">
+    <div class="toast-wrap" role="status" aria-live="polite" aria-atomic="false">
       <TransitionGroup name="t">
         <div v-for="t in toasts" :key="t.id" :class="['toast', t.type !== 'default' && `toast-${t.type}`]">
           <i :class="['ti', iconMap[t.type] || 'ti-info-circle']" />

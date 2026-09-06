@@ -1,7 +1,6 @@
 <template>
   <div>
     <UserNavbar />
-    <AppToast />
 
     <main class="page">
       <div class="wrap">
@@ -166,6 +165,11 @@
         <!-- 加载 -->
         <div v-if="loading" style="text-align:center;padding:2rem;color:var(--ink-3)">加载中…</div>
 
+        <div v-else-if="displayJobError" role="alert" style="text-align:center;padding:2rem;color:var(--ink-3)">
+          <div style="margin-bottom:.75rem">{{ displayJobError }}</div>
+          <button class="btn btn-secondary btn-sm" @click="fetchJobs">重新加载</button>
+        </div>
+
         <!-- 岗位列表 -->
         <div v-else style="display:flex;flex-direction:column;gap:.35rem">
           <RouterLink v-for="j in jobs" :key="j.id" class="job-card" :to="'/job/'+j.id">
@@ -193,7 +197,7 @@
         </div>
 
         <!-- 分页 -->
-        <div class="pagination">
+        <div v-if="!loading && !displayJobError && jobs.length" class="pagination">
           <button v-for="n in totalPages" :key="n" :class="['page-btn', n===page&&'active']" @click="goPage(n)">{{ n }}</button>
         </div>
 
@@ -206,10 +210,10 @@
 import { ref, computed, onMounted, nextTick } from 'vue'
 import { useRouter } from 'vue-router'
 import UserNavbar from '@/components/UserNavbar.vue'
-import AppToast from '@/components/AppToast.vue'
+import { apiJson } from '@/lib/api'
 
 const router = useRouter()
-const BASE = 'http://localhost:9100'
+const allowMockFallback = import.meta.env.DEV && import.meta.env.VITE_DISABLE_JOB_MOCK !== '1'
 const offset = ref(0)
 const CARD_W = 208
 const featured = ref([])
@@ -307,6 +311,19 @@ const provinces = {
 const jobTypes    = ['新闻媒体','企业公司','党政机关','学术教职','其他']
 const recruitTypes = ['大实习','小实习','日常实习','应届招聘']
 
+const RECRUIT_TO_API = {
+  大实习: 'BIG_INTERNSHIP',
+  小实习: 'SMALL_INTERNSHIP',
+  日常实习: 'DAILY_INTERNSHIP',
+  应届招聘: 'CAMPUS_RECRUITMENT',
+}
+
+const MODE_TO_API = {
+  线下: 'OFFLINE',
+  线上: 'ONLINE',
+  线上线下均可: 'HYBRID',
+}
+
 function toggleJobType(v) {
   jobtypeF.value = jobtypeF.value === v ? '' : v
   fetchJobs()
@@ -369,7 +386,8 @@ const total      = ref(0)
 const page       = ref(1)
 const pageSize   = 10
 const sortBy     = ref('newest')
-const loading    = ref(false)
+const loading    = ref(true)
+const displayJobError = ref('')
 const totalPages = computed(() => Math.max(1, Math.ceil(total.value / pageSize)))
 
 function setSort(s) { sortBy.value = s; page.value = 1; fetchJobs() }
@@ -403,35 +421,57 @@ const MOCK = [
 
 async function fetchJobs() {
   loading.value = true
+  displayJobError.value = ''
   try {
-    const params = new URLSearchParams({ page: page.value, size: pageSize })
-    if (kw.value)        params.set('keyword',     kw.value)
-    if (cityF.value)     params.set('workCity',    cityF.value)
+    const params = new URLSearchParams({ page: String(page.value), size: String(pageSize) })
+    if (kw.value) params.set('keyword', kw.value)
+    if (cityF.value) params.set('workCity', cityF.value)
     else if (provinceF.value) params.set('workCity', provinceF.value)
-    if (jobtypeF.value)  params.set('jobType',     jobtypeF.value)
-    if (recruitF.value)  params.set('recruitType', recruitF.value)
-    if (durationF.value) params.set('duration',    durationF.value)
-    if (daysF.value)     params.set('weekDays',    daysF.value)
-    if (salaryF.value)   params.set('salary',      salaryF.value)
-    if (modeF.value)     params.set('workMode',    modeF.value)
-    const res  = await fetch(`${BASE}/job/list?${params}`)
-    const data = await res.json()
-    if (data.code === 200) {
-      const recs = data.data?.records || data.data?.list || []
-      total.value = data.data?.total || recs.length
-      jobs.value  = recs.map(j => ({
-        id: j.id, abbr: abbrOf(j.companyName), title: j.positionName,
-        company: j.companyName, city: j.workCity || '',
-        jobtype: j.jobType || '',
-        recruit: recruitLabel(j.recruitType),
-        recruitBadge: RECRUIT_BADGE[recruitLabel(j.recruitType)] || '',
-        l2tags: [j.duration, j.weekDays, j.salary, j.workMode].filter(Boolean),
-        dl: fmtDate(j.workEndDate),
-      }))
-      if (page.value === 1 && featured.value.length === 0)
-        featured.value = jobs.value.slice(0,6).map(j => ({ id:j.id, company:j.company, title:j.title }))
-    } else throw new Error()
-  } catch {
+    if (recruitF.value && RECRUIT_TO_API[recruitF.value]) {
+      params.set('recruitType', RECRUIT_TO_API[recruitF.value])
+    }
+    if (modeF.value && MODE_TO_API[modeF.value]) {
+      params.set('workMode', MODE_TO_API[modeF.value])
+    }
+    const pageResult = await apiJson(`/job/list?${params}`)
+    const recs = pageResult?.list || pageResult?.records || []
+    total.value = pageResult?.total ?? recs.length
+    let mapped = recs.map((j) => ({
+      id: j.id,
+      abbr: abbrOf(j.companyName),
+      title: j.positionName,
+      company: j.companyName,
+      city: j.workCity || '',
+      province: provinceF.value || '',
+      jobtype: jobtypeF.value || '',
+      recruit: recruitLabel(j.recruitType),
+      duration: '',
+      days: '',
+      salary: j.salaryDisplay || '',
+      mode: j.workMode || '',
+      dl: fmtDate(j.workEndDate),
+      pub: (j.createdAt && String(j.createdAt).slice(0, 10)) || '',
+      rec: false,
+      recruitBadge: RECRUIT_BADGE[recruitLabel(j.recruitType)] || '',
+      l2tags: [j.salaryDisplay, j.workMode].filter(Boolean),
+    }))
+    if (jobtypeF.value) mapped = mapped.filter((j) => !jobtypeF.value || j.jobtype === jobtypeF.value)
+    if (durationF.value) mapped = mapped.filter((j) => j.duration === durationF.value)
+    if (daysF.value) mapped = mapped.filter((j) => j.days === daysF.value)
+    if (salaryF.value) mapped = mapped.filter((j) => j.salary === salaryF.value)
+    if (sortBy.value === 'deadline') mapped.sort((a, b) => (a.dl || '').localeCompare(b.dl || ''))
+    else mapped.sort((a, b) => (b.pub || '').localeCompare(a.pub || ''))
+    jobs.value = mapped
+    if (page.value === 1 && featured.value.length === 0) {
+      featured.value = jobs.value.slice(0, 6).map((j) => ({ id: j.id, company: j.company, title: j.title }))
+    }
+  } catch (e) {
+    if (!allowMockFallback) {
+      displayJobError.value = e?.message || '加载岗位失败'
+      jobs.value = []
+      total.value = 0
+      return
+    }
     let f = [...MOCK]
     if (kw.value)          f = f.filter(j => j.title.includes(kw.value) || j.company.includes(kw.value))
     if (cityF.value)       f = f.filter(j => j.city === cityF.value)

@@ -1,6 +1,5 @@
 <template>
   <div>
-    <AppToast />
     <!-- 管理员导航 -->
     <nav class="navbar">
       <!-- sidebar 区域：宽度与 --sidebar-w 对齐，品牌居中 -->
@@ -18,9 +17,9 @@
       <!-- main 区域：撑满剩余，右侧 padding 与 admin-main 对齐 -->
       <div class="navbar-main-col">
         <div class="nav-right">
-          <div class="nav-avatar">张</div>
-          <span style="font-size:.8rem;color:var(--ink-2)">张老师</span>
-          <RouterLink to="/login" class="btn btn-ghost btn-sm"><i class="ti ti-logout" /></RouterLink>
+          <div class="nav-avatar">{{ displayAdminInitial }}</div>
+          <span style="font-size:.8rem;color:var(--ink-2)">{{ displayAdminName }}</span>
+          <button type="button" class="btn btn-ghost btn-sm" @click="logoutSession()"><i class="ti ti-logout" /></button>
         </div>
       </div>
     </nav>
@@ -29,10 +28,10 @@
       <!-- 侧边栏 -->
       <aside class="sidebar">
         <div class="sidebar-label">岗位管理</div>
-        <button :class="['sidebar-link', v==='list'&&'active']" @click="v='list'"><i class="ti ti-list" />岗位列表</button>
-        <button :class="['sidebar-link', v==='create'&&'active']" @click="v='create'"><i class="ti ti-plus" />新建岗位</button>
-        <button :class="['sidebar-link', v==='drafts'&&'active']" @click="v='drafts'"><i class="ti ti-inbox" />草稿箱<span v-if="draftCount>0" class="sidebar-badge">{{ draftCount }}</span></button>
-        <button :class="['sidebar-link', v==='resumes'&&'active']" @click="v='resumes'"><i class="ti ti-file-text" />简历管理</button>
+        <button :class="['sidebar-link', v==='list'&&'active']" @click="showJobs"><i class="ti ti-list" />岗位列表</button>
+        <button :class="['sidebar-link', v==='create'&&'active']" @click="startCreate"><i class="ti ti-plus" />新建岗位</button>
+        <button :class="['sidebar-link', v==='drafts'&&'active']" @click="showDrafts"><i class="ti ti-inbox" />草稿箱<span v-if="readDraftTotal>0" class="sidebar-badge">{{ readDraftTotal }}</span></button>
+        <button :class="['sidebar-link', v==='resumes'&&'active']" @click="showResumes"><i class="ti ti-file-text" />简历管理</button>
       </aside>
 
       <main class="admin-main">
@@ -45,19 +44,20 @@
 
           <!-- 工具栏 -->
           <div style="display:flex;align-items:center;gap:.625rem;margin-bottom:1.1rem;flex-wrap:wrap">
-            <input class="form-control" style="flex:1;min-width:180px;padding:.5rem .875rem" v-model="sk" placeholder="搜索岗位名称、公司..." />
-            <select class="form-control" style="min-width:110px;padding:.5rem .875rem" v-model="sf">
+            <input class="form-control" style="flex:1;min-width:180px;padding:.5rem .875rem" v-model="sk" placeholder="搜索岗位名称、公司..." @keyup.enter="searchJobs" />
+            <select class="form-control" style="min-width:110px;padding:.5rem .875rem" v-model="sf" @change="searchJobs">
               <option value="">全部状态</option><option value="PUBLISHED">发布中</option><option value="OFFLINE">未发布</option><option value="EXPIRED">已截止</option>
             </select>
+            <button class="btn btn-secondary btn-sm" @click="searchJobs"><i class="ti ti-search" />搜索</button>
           </div>
 
           <!-- 批量操作栏 -->
           <div v-if="selected.length" style="display:flex;align-items:center;gap:.5rem;padding:.55rem .875rem;background:var(--red-light);border:1px solid var(--red-border);border-radius:var(--r-md);margin-bottom:.875rem;font-size:.8rem;color:var(--red);flex-wrap:wrap">
             已选 {{ selected.length }} 条 &nbsp;·&nbsp;
-            <button v-if="publishableCount>0" class="btn btn-secondary btn-sm" @click="bulkPublish"><i class="ti ti-send" />发布（{{ publishableCount }} 条）</button>
-            <button v-if="offlinableCount>0" class="btn btn-secondary btn-sm" @click="bulkOffline"><i class="ti ti-send-off" />停止发布（{{ offlinableCount }} 条）</button>
-            <button v-if="recableCount>0" class="btn btn-secondary btn-sm" @click="bulkRec(true)"><i class="ti ti-star" />批量设为推荐</button>
-            <button v-if="recableCount>0" class="btn btn-secondary btn-sm" @click="bulkRec(false)"><i class="ti ti-star-off" />取消推荐</button>
+            <button v-if="publishableCount>0" class="btn btn-secondary btn-sm" :disabled="updatingJobs" @click="bulkPublish"><i class="ti ti-send" />发布（{{ publishableCount }} 条）</button>
+            <button v-if="offlinableCount>0" class="btn btn-secondary btn-sm" :disabled="updatingJobs" @click="bulkOffline"><i class="ti ti-send-off" />停止发布（{{ offlinableCount }} 条）</button>
+            <button v-if="recableCount>0" class="btn btn-secondary btn-sm" :disabled="updatingJobs" @click="bulkRec(true)"><i class="ti ti-star" />批量设为推荐</button>
+            <button v-if="recableCount>0" class="btn btn-secondary btn-sm" :disabled="updatingJobs" @click="bulkRec(false)"><i class="ti ti-star-off" />取消推荐</button>
             <button class="btn btn-red-soft btn-sm" @click="bulkDelete"><i class="ti ti-trash" />批量删除</button>
           </div>
 
@@ -66,12 +66,21 @@
             <table class="data-table">
               <thead>
                 <tr>
-                  <th class="col-check"><input type="checkbox" :checked="filteredJobs.length>0 && filteredJobs.every(j=>selected.includes(j.id))" @change="e=>toggleAll(e.target.checked)" /></th>
+                  <th class="col-check"><input type="checkbox" :checked="displayJobs.length>0 && displayJobs.every(j=>selected.includes(j.id))" @change="e=>toggleAll(e.target.checked)" /></th>
                   <th>岗位名称</th><th>公司</th><th>城市</th><th>截止</th><th>状态</th><th>投递数</th><th>推荐</th><th>操作</th>
                 </tr>
               </thead>
               <tbody>
-                <tr v-for="j in filteredJobs" :key="j.id">
+                <tr v-if="jobsLoading"><td colspan="9" style="text-align:center;color:var(--ink-3)">岗位加载中…</td></tr>
+                <tr v-else-if="displayJobError">
+                  <td colspan="9" class="table-state" role="alert">
+                    <div>{{ displayJobError }}</div>
+                    <button class="btn btn-secondary btn-sm" @click="loadJobs">重新加载</button>
+                  </td>
+                </tr>
+                <tr v-else-if="displayJobs.length===0"><td colspan="9" style="text-align:center;color:var(--ink-3)">暂无岗位</td></tr>
+                <template v-else>
+                <tr v-for="j in displayJobs" :key="j.id">
                   <td class="col-check"><input type="checkbox" :checked="selected.includes(j.id)" @change="toggleSel(j.id)" /></td>
                   <td><span style="font-weight:500;cursor:pointer;color:var(--ink)" @click="openEdit(j)">{{ j.positionName }}</span></td>
                   <td>{{ j.companyName }}</td>
@@ -82,22 +91,25 @@
                     <span v-if="j.sourceUrl" class="badge badge-gray" style="font-size:.72rem;gap:3px"><i class="ti ti-external-link" style="font-size:9px" />外部投递</span>
                     <span v-else>{{ j.apps ?? 0 }}</span>
                   </td>
-                  <td><span v-if="j.status==='PUBLISHED'" :class="['rec-toggle', j.rec&&'on']" @click="toggleRec(j)"><i :class="['ti', j.rec?'ti-star-filled':'ti-star']" />{{ j.rec?'推荐中':'设为推荐' }}</span><span v-else style="color:var(--ink-4);font-size:.78rem">—</span></td>
+                  <td><span v-if="j.status==='PUBLISHED'" :class="['rec-toggle', j.rec&&'on', updatingJobs&&'action-disabled']" @click="toggleRec(j)"><i :class="['ti', j.rec?'ti-star-filled':'ti-star']" />{{ j.rec?'推荐中':'设为推荐' }}</span><span v-else style="color:var(--ink-4);font-size:.78rem">—</span></td>
                   <td>
                     <div class="tbl-acts">
                       <div class="tbl-btn" @click="openEdit(j)"><span class="tbl-tip">编辑</span><i class="ti ti-edit" /></div>
-                      <div v-if="j.status==='OFFLINE'" class="tbl-btn approve" @click="publish(j)"><span class="tbl-tip">发布上线</span><i class="ti ti-send" /></div>
-                      <div v-else-if="j.status==='PUBLISHED'" class="tbl-btn" @click="toast.show('已停止发布')"><span class="tbl-tip">停止发布</span><i class="ti ti-send-off" /></div>
+                      <div v-if="j.status==='OFFLINE'" :class="['tbl-btn approve', updatingJobs&&'action-disabled']" @click="publish(j)"><span class="tbl-tip">发布上线</span><i class="ti ti-send" /></div>
+                      <div v-else-if="j.status==='PUBLISHED'" :class="['tbl-btn', updatingJobs&&'action-disabled']" @click="offline(j)"><span class="tbl-tip">停止发布</span><i class="ti ti-send-off" /></div>
                       <div v-if="j.status!=='OFFLINE'" class="tbl-btn" @click="goJobResumes(j)"><span class="tbl-tip">查看简历</span><i class="ti ti-file-text" /></div>
                     </div>
                   </td>
                 </tr>
+                </template>
               </tbody>
             </table>
           </div>
-          <div class="pagination" style="margin-top:.875rem">
-            <span style="font-size:.773rem;color:var(--ink-3);margin-right:auto">共 {{ jobs.length }} 条</span>
-            <button v-for="n in 3" :key="n" :class="['page-btn', n===1&&'active']">{{ n }}</button>
+          <div v-if="!jobsLoading && !displayJobError" class="pagination" style="margin-top:.875rem">
+            <span style="font-size:.773rem;color:var(--ink-3);margin-right:auto">共 {{ readJobTotal }} 条</span>
+            <button class="page-btn" :disabled="readJobPage<=1" @click="changeJobPage(readJobPage-1)"><i class="ti ti-chevron-left" /></button>
+            <span style="font-size:.773rem;color:var(--ink-3)">第 {{ readJobPage }} / {{ readJobPages }} 页</span>
+            <button class="page-btn" :disabled="readJobPage>=readJobPages" @click="changeJobPage(readJobPage+1)"><i class="ti ti-chevron-right" /></button>
           </div>
         </div>
 
@@ -107,6 +119,31 @@
             <div>
               <h1><i :class="editingId?'ti ti-edit':'ti ti-plus'" />{{ editingId ? '编辑岗位' : '新建岗位' }}</h1>
               
+            </div>
+          </div>
+
+          <div v-if="!editingId" class="card card-p" style="margin-bottom:1rem">
+            <div class="form-section-title">智能解析岗位描述</div>
+            <div class="form-group">
+              <label class="form-label">岗位原文</label>
+              <textarea class="form-control" style="min-height:140px" v-model="rawJobText" placeholder="粘贴完整岗位描述，系统将提取公司、岗位、地点、薪资和任职要求等字段…" />
+            </div>
+            <div style="display:flex;align-items:center;justify-content:space-between;gap:.75rem;flex-wrap:wrap">
+              <span style="font-size:.75rem;color:var(--ink-3)">解析结果只会填入下方表单，请检查并编辑后再发布。</span>
+              <button type="button" class="btn btn-primary btn-sm" :disabled="structuring || !rawJobText.trim()" @click="structureJob">
+                <i :class="['ti', structuring ? 'ti-loader-2' : 'ti-sparkles']" />{{ structuring ? '正在解析…' : '解析并填充' }}
+              </button>
+            </div>
+            <div v-if="structureWarnings.length" style="margin-top:.75rem;padding:.65rem .8rem;border-radius:var(--r-md);background:#fff8e6;color:#8a5a00;font-size:.76rem">
+              <div v-for="warning in structureWarnings" :key="warning">{{ warning }}</div>
+            </div>
+            <div v-if="structuredJobs.length>1" style="margin-top:.75rem">
+              <div style="font-size:.78rem;color:var(--ink-2);margin-bottom:.45rem">识别到多个岗位，请选择一个继续编辑：</div>
+              <div style="display:flex;gap:.5rem;flex-wrap:wrap">
+                <button v-for="(job, index) in structuredJobs" :key="index" type="button" class="btn btn-secondary btn-sm" @click="applyStructuredJob(job)">
+                  {{ job.companyName || '未知公司' }} · {{ job.positionName || `岗位 ${index + 1}` }}
+                </button>
+              </div>
             </div>
           </div>
 
@@ -354,8 +391,8 @@
           <div class="card card-p">
             <div style="display:flex;align-items:center;justify-content:flex-end;gap:.5rem">
               <button class="btn btn-secondary btn-sm" @click="v=editingId?'list':'list'; _resetForm()">取消</button>
-              <button class="btn btn-secondary btn-sm" @click="saveDraft"><i class="ti ti-device-floppy" />保存草稿</button>
-              <button class="btn btn-primary btn-sm" @click="publishJob"><i class="ti ti-send" />发布上线</button>
+              <button class="btn btn-secondary btn-sm" :disabled="savingJob" @click="saveDraft"><i class="ti ti-device-floppy" />保存草稿</button>
+              <button class="btn btn-primary btn-sm" :disabled="savingJob" @click="publishJob"><i class="ti ti-send" />{{ savingJob ? '提交中…' : '发布上线' }}</button>
             </div>
           </div>
         </div>
@@ -365,26 +402,31 @@
           <div class="page-hd">
             <div><h1><i class="ti ti-inbox" />草稿箱</h1></div>
           </div>
-          <div v-if="draftJobs.length===0" style="text-align:center;padding:3rem;color:var(--ink-3);font-size:.86rem">
+          <div v-if="draftsLoading" class="card table-state">草稿加载中…</div>
+          <div v-else-if="displayDraftError" class="card table-state" role="alert">
+            <div>{{ displayDraftError }}</div>
+            <button class="btn btn-secondary btn-sm" @click="loadDrafts">重新加载</button>
+          </div>
+          <div v-else-if="displayDraftJobs.length===0" style="text-align:center;padding:3rem;color:var(--ink-3);font-size:.86rem">
             <i class="ti ti-inbox" style="font-size:2rem;display:block;margin-bottom:.5rem" />暂无草稿
           </div>
           <template v-else>
             <!-- 批量操作栏 -->
             <div v-if="draftSelected.length" style="display:flex;align-items:center;gap:.5rem;padding:.55rem .875rem;background:var(--red-light);border:1px solid var(--red-border);border-radius:var(--r-md);margin-bottom:.875rem;font-size:.8rem;color:var(--red);flex-wrap:wrap">
               已选 {{ draftSelected.length }} 条 &nbsp;·&nbsp;
-              <button class="btn btn-secondary btn-sm" @click="draftBulkPublish"><i class="ti ti-player-play" />批量发布上线</button>
+              <button class="btn btn-secondary btn-sm" :disabled="updatingJobs" @click="draftBulkPublish"><i class="ti ti-player-play" />批量发布上线</button>
               <button class="btn btn-red-soft btn-sm" @click="draftBulkDelete"><i class="ti ti-trash" />批量删除</button>
             </div>
             <div class="card" style="overflow:hidden">
               <table class="data-table">
                 <thead>
                   <tr>
-                    <th class="col-check"><input type="checkbox" :checked="draftJobs.length>0 && draftJobs.every(j=>draftSelected.includes(j.id))" @change="e=>draftToggleAll(e.target.checked)" /></th>
+                    <th class="col-check"><input type="checkbox" :checked="displayDraftJobs.length>0 && displayDraftJobs.every(j=>draftSelected.includes(j.id))" @change="e=>draftToggleAll(e.target.checked)" /></th>
                     <th>岗位名称</th><th>公司</th><th>城市</th><th>截止</th><th>来源</th><th>操作</th>
                   </tr>
                 </thead>
                 <tbody>
-                  <tr v-for="j in draftJobs" :key="j.id">
+                  <tr v-for="j in displayDraftJobs" :key="j.id">
                     <td class="col-check"><input type="checkbox" :checked="draftSelected.includes(j.id)" @change="draftToggleSel(j.id)" /></td>
                     <td><span style="font-weight:500;color:var(--ink)">{{ j.positionName }}</span></td>
                     <td>{{ j.companyName }}</td>
@@ -397,13 +439,19 @@
                     <td>
                       <div class="tbl-acts">
                         <div class="tbl-btn" @click="openEdit(j)"><span class="tbl-tip">继续编辑</span><i class="ti ti-edit" /></div>
-                        <div class="tbl-btn approve" @click="publish(j)"><span class="tbl-tip">发布上线</span><i class="ti ti-send" /></div>
+                        <div :class="['tbl-btn approve', updatingJobs&&'action-disabled']" @click="publish(j)"><span class="tbl-tip">发布上线</span><i class="ti ti-send" /></div>
                         <div class="tbl-btn danger" @click="bulkDelete([j.id])"><span class="tbl-tip">删除草稿</span><i class="ti ti-trash" /></div>
                       </div>
                     </td>
                   </tr>
                 </tbody>
               </table>
+            </div>
+            <div class="pagination" style="margin-top:.875rem">
+              <span style="font-size:.773rem;color:var(--ink-3);margin-right:auto">共 {{ readDraftTotal }} 条草稿</span>
+              <button class="page-btn" :disabled="readDraftPage<=1" @click="changeDraftPage(readDraftPage-1)"><i class="ti ti-chevron-left" /></button>
+              <span style="font-size:.773rem;color:var(--ink-3)">第 {{ readDraftPage }} / {{ readDraftPages }} 页</span>
+              <button class="page-btn" :disabled="readDraftPage>=readDraftPages" @click="changeDraftPage(readDraftPage+1)"><i class="ti ti-chevron-right" /></button>
             </div>
           </template>
         </div>
@@ -414,7 +462,13 @@
             <div><h1><i class="ti ti-file-text" />简历管理</h1></div>
           </div>
 
-          <div class="card" style="overflow:hidden">
+          <div v-if="resumeJobsLoading" class="card table-state">岗位加载中…</div>
+          <div v-else-if="displayResumeJobError" class="card table-state" role="alert">
+            <div>{{ displayResumeJobError }}</div>
+            <button class="btn btn-secondary btn-sm" @click="loadResumeJobs">重新加载</button>
+          </div>
+          <div v-else-if="!jobGroups.length" class="card table-state">暂无发布中的岗位</div>
+          <div v-else class="card" style="overflow:hidden">
             <div
               v-for="jg in jobGroups" :key="jg.jobId"
               class="jrc-row"
@@ -430,11 +484,17 @@
                 <span style="font-size:.75rem;color:var(--ink-3)">截止 {{ jg.dl }}</span>
               </div>
               <div class="jrc-row-count">
-                <span class="jrc-count-num">{{ jg.resumes.length }}</span>
+                <span class="jrc-count-num">{{ jg.applicationCount }}</span>
                 <span class="jrc-count-label">份投递</span>
               </div>
               <i class="ti ti-chevron-right" style="color:var(--ink-4);font-size:1rem;flex-shrink:0" />
             </div>
+          </div>
+          <div v-if="!resumeJobsLoading && !displayResumeJobError && jobGroups.length" class="pagination" style="margin-top:.875rem">
+            <span style="font-size:.773rem;color:var(--ink-3);margin-right:auto">共 {{ readResumeJobTotal }} 个发布岗位</span>
+            <button class="page-btn" :disabled="readResumeJobPage<=1" @click="changeResumeJobPage(readResumeJobPage-1)"><i class="ti ti-chevron-left" /></button>
+            <span style="font-size:.773rem;color:var(--ink-3)">第 {{ readResumeJobPage }} / {{ readResumeJobPages }} 页</span>
+            <button class="page-btn" :disabled="readResumeJobPage>=readResumeJobPages" @click="changeResumeJobPage(readResumeJobPage+1)"><i class="ti ti-chevron-right" /></button>
           </div>
         </div>
 
@@ -445,23 +505,18 @@
               <h1><i class="ti ti-clipboard-list" />{{ currentJobGroup?.title }}</h1>
             </div>
             <div class="page-hd-actions">
-              <button class="btn btn-secondary btn-sm" @click="v='resumes'; resumeSel=[]"><i class="ti ti-arrow-left" />返回</button>
+              <button class="btn btn-secondary btn-sm" @click="showResumes"><i class="ti ti-arrow-left" />返回</button>
               <div class="export-dropdown" :class="{open: exportMenuOpen}">
                 <button class="btn btn-primary btn-sm" @click.stop="exportMenuOpen=!exportMenuOpen">
                   <i class="ti ti-package-export" />导出
                   <i class="ti ti-chevron-down" style="font-size:11px;margin-left:2px" />
                 </button>
                 <div class="export-menu" @click.stop>
-                  <div class="export-menu-item" @click="exportData('questionnaire'); exportMenuOpen=false">
+                  <div class="export-menu-item" @click="exportData('csv'); exportMenuOpen=false">
                     <i class="ti ti-table-export" />仅导出问卷数据
-                    <span>Excel</span>
+                    <span>CSV（Excel 可打开）</span>
                   </div>
-                  <div class="export-menu-item" @click="exportData('resume'); exportMenuOpen=false">
-                    <i class="ti ti-file-download" />仅导出简历附件
-                    <span>ZIP</span>
-                  </div>
-                  <div class="export-menu-divider" />
-                  <div class="export-menu-item" @click="exportData('all'); exportMenuOpen=false">
+                  <div class="export-menu-item" @click="exportData('zip'); exportMenuOpen=false">
                     <i class="ti ti-package-export" />导出问卷 + 简历
                     <span>ZIP</span>
                   </div>
@@ -479,29 +534,33 @@
                 <i class="ti ti-chevron-down" style="font-size:11px;margin-left:2px" />
               </button>
               <div class="export-menu" @click.stop>
-                <div class="export-menu-item" @click="exportData('questionnaire'); exportMenuOpen2=false">
-                  <i class="ti ti-table-export" />仅导出问卷数据<span>Excel</span>
+                <div class="export-menu-item" @click="exportData('csv'); exportMenuOpen2=false">
+                  <i class="ti ti-table-export" />仅导出问卷数据<span>CSV（Excel 可打开）</span>
                 </div>
-                <div class="export-menu-item" @click="exportData('resume'); exportMenuOpen2=false">
-                  <i class="ti ti-file-download" />仅导出简历附件<span>ZIP</span>
-                </div>
-                <div class="export-menu-divider" />
-                <div class="export-menu-item" @click="exportData('all'); exportMenuOpen2=false">
+                <div class="export-menu-item" @click="exportData('zip'); exportMenuOpen2=false">
                   <i class="ti ti-package-export" />导出问卷 + 简历<span>ZIP</span>
                 </div>
               </div>
             </div>
+            <button class="btn btn-secondary btn-sm" @click="reviewAnswers(true)">全部待审核通过</button>
+            <button class="btn btn-secondary btn-sm" @click="reviewAnswers(false)">全部待审核不通过</button>
             <button class="btn btn-secondary btn-sm" @click="resumeSel=[]">取消选择</button>
           </div>
 
-          <div class="card" style="overflow:hidden">
+          <div v-if="answersLoading" class="card table-state">投递加载中…</div>
+          <div v-else-if="displayAnswerError" class="card table-state" role="alert">
+            <div>{{ displayAnswerError }}</div>
+            <button class="btn btn-secondary btn-sm" @click="loadAnswers">重新加载</button>
+          </div>
+          <div v-else-if="!currentJobGroup?.resumes.length" class="card table-state">暂无投递记录</div>
+          <div v-else class="card" style="overflow:hidden">
             <table class="data-table">
               <thead>
                 <tr>
                   <th class="col-check">
                     <input type="checkbox"
-                      :checked="resumeSel.length===currentJobGroup?.resumes.length"
-                      @change="e=>resumeSel=e.target.checked?currentJobGroup.resumes.map(r=>r.sid):[]" />
+                      :checked="currentJobGroup?.resumes.length>0 && resumeSel.length===currentJobGroup.resumes.length"
+                      @change="e=>resumeSel=e.target.checked?currentJobGroup.resumes.map(r=>r.id):[]" />
                   </th>
                   <th>学生姓名</th>
                   <th>学号</th>
@@ -511,12 +570,12 @@
                 </tr>
               </thead>
               <tbody>
-                <template v-for="r in currentJobGroup?.resumes" :key="r.sid">
-                  <tr :class="expandedRow===r.sid?'row-expanded':''">
+                <template v-for="r in currentJobGroup?.resumes" :key="r.id">
+                  <tr :class="expandedRow===r.id?'row-expanded':''">
                     <td class="col-check">
                       <input type="checkbox"
-                        :checked="resumeSel.includes(r.sid)"
-                        @change="toggleResumeSel(r.sid)" />
+                        :checked="resumeSel.includes(r.id)"
+                        @change="toggleResumeSel(r.id)" />
                     </td>
                     <td style="font-weight:600">
                       <div style="display:flex;align-items:center;gap:.4rem">
@@ -527,26 +586,34 @@
                     <td style="color:var(--ink-2);font-size:.773rem;font-family:monospace">{{ r.sid }}</td>
                     <td style="color:var(--ink-2);font-size:.8rem">
                       <div>{{ r.date }}</div>
-
+                      <div v-if="r.reviewedAt" style="font-size:.7rem;color:var(--ink-3)">审核于 {{ r.reviewedAt.replace('T', ' ').slice(0, 16) }}</div>
                     </td>
                     <td>
-                      <button class="btn btn-ghost btn-sm" style="font-size:.78rem" @click="expandedRow=expandedRow===r.sid?null:r.sid">
-                        <i :class="['ti', expandedRow===r.sid?'ti-chevron-up':'ti-chevron-down']" />
-                        {{ expandedRow===r.sid?'收起':'查看问卷' }}
+                      <button class="btn btn-ghost btn-sm" style="font-size:.78rem" @click="expandedRow=expandedRow===r.id?null:r.id">
+                        <i :class="['ti', expandedRow===r.id?'ti-chevron-up':'ti-chevron-down']" />
+                        {{ expandedRow===r.id?'收起':'查看问卷' }}
                       </button>
                     </td>
                     <td>
                       <div class="tbl-acts">
-                        <div class="tbl-btn" @click="previewResume(r)"><span class="tbl-tip">预览简历</span><i class="ti ti-file-search" /></div>
-                        <div class="tbl-btn" @click="toast.success(r.name+' 简历下载中...')"><span class="tbl-tip">下载简历 PDF</span><i class="ti ti-file-download" /></div>
+                        <button v-if="r.submissionStatus==='SUBMITTED'" class="btn btn-ghost btn-sm" @click="reviewAnswer(r,true)">通过</button>
+                        <button v-if="r.submissionStatus==='SUBMITTED'" class="btn btn-ghost btn-sm" @click="reviewAnswer(r,false)">不通过</button>
+                        <span v-else class="badge badge-gray">{{ r.statusLabel || r.submissionStatus }}</span>
                       </div>
                     </td>
                   </tr>
                   <!-- 展开问卷详情 -->
-                  <tr v-if="expandedRow===r.sid" class="detail-row">
-                    <td colspan="5">
+                  <tr v-if="expandedRow===r.id" class="detail-row">
+                    <td colspan="6">
                       <div class="questionnaire-detail">
                         <div class="qd-title"><i class="ti ti-clipboard-list" />问卷填写内容</div>
+                        <div style="font-size:.78rem;color:var(--ink-2);margin-bottom:.75rem">
+                          状态：{{ r.statusLabel || r.submissionStatus }}
+                          <template v-if="r.reviewedAt">
+                            · 结果：{{ r.reviewPassed ? '通过' : '不通过' }}
+                            · 意见：{{ r.reviewComments || '无' }}
+                          </template>
+                        </div>
                         <div class="qd-grid">
                           <div
                             v-for="qa in parseAnswers(currentJobGroup.questions, r.answers)"
@@ -588,10 +655,10 @@
 
                             <!-- FILE_UPLOAD：文件下载链接 -->
                             <div v-else-if="qa.questionType==='FILE_UPLOAD'" style="margin-top:.4rem">
-                              <a v-if="qa.value" :href="qa.value" target="_blank" class="qd-file-link">
+                              <span v-if="qa.value" class="qd-file-link">
                                 <i class="ti ti-file-type-pdf" />
-                                查看 / 下载简历
-                              </a>
+                                文件 ID {{ qa.value }}（请通过 ZIP 导出）
+                              </span>
                               <span v-else style="font-size:.78rem;color:var(--ink-3)">（未上传）</span>
                             </div>
                           </div>
@@ -603,23 +670,15 @@
               </tbody>
             </table>
           </div>
+          <div v-if="!answersLoading && !displayAnswerError && currentJobGroup?.resumes.length" class="pagination" style="margin-top:.875rem">
+            <span style="font-size:.773rem;color:var(--ink-3);margin-right:auto">共 {{ readAnswerTotal }} 份投递</span>
+            <button class="page-btn" :disabled="readAnswerPage<=1" @click="changeAnswerPage(readAnswerPage-1)"><i class="ti ti-chevron-left" /></button>
+            <span style="font-size:.773rem;color:var(--ink-3)">第 {{ readAnswerPage }} / {{ readAnswerPages }} 页</span>
+            <button class="page-btn" :disabled="readAnswerPage>=readAnswerPages" @click="changeAnswerPage(readAnswerPage+1)"><i class="ti ti-chevron-right" /></button>
+          </div>
         </div>
 
       </main>
-    </div>
-
-    <!-- ── PDF 简历预览弹窗 ── -->
-    <div v-if="previewUrl" class="modal-mask" @click.self="previewUrl=null">
-      <div class="preview-box">
-        <div class="preview-head">
-          <span style="font-weight:600;font-size:.9rem;color:var(--ink)">{{ previewName }} · 简历预览</span>
-          <div style="display:flex;gap:.4rem">
-            <a :href="previewUrl" target="_blank" class="btn btn-secondary btn-sm"><i class="ti ti-external-link" />新标签打开</a>
-            <button class="icon-btn" @click="previewUrl=null"><i class="ti ti-x" /></button>
-          </div>
-        </div>
-        <iframe :src="previewUrl" class="preview-iframe" />
-      </div>
     </div>
 
     <!-- ── 确认弹窗 ── -->
@@ -638,8 +697,8 @@
 
 <script setup>
 import { ref, computed, onMounted } from 'vue'
-import AppToast from '@/components/AppToast.vue'
 import { useToast } from '@/composables/useToast'
+import { apiDownloadBlob, apiJson, logoutSession } from '@/lib/api'
 
 const toast = useToast()
 const v     = ref('list')
@@ -647,8 +706,18 @@ const sk    = ref('')
 const sf    = ref('')
 const selected     = ref([])
 const draftSelected = ref([])
-const createSrc    = ref('手动填写')
-const sources      = ['手动填写', '表格批量导入']
+const displayAdminName = ref('管理员')
+const displayAdminInitial = computed(() => displayAdminName.value.trim().charAt(0) || '管')
+const jobsLoading = ref(true)
+const displayJobError = ref('')
+const draftsLoading = ref(true)
+const displayDraftError = ref('')
+const updatingJobs = ref(false)
+const savingJob = ref(false)
+const rawJobText = ref('')
+const structuring = ref(false)
+const structuredJobs = ref([])
+const structureWarnings = ref([])
 
 // 通用确认弹窗
 const show_confirm = ref(false)
@@ -658,88 +727,213 @@ function doConfirm() { confirm_cb.value?.(); show_confirm.value = false }
 function cancelConfirm() { show_confirm.value = false }
 
 
-const jobs = ref([
-  { id:1, positionName:'新媒体编辑记者', companyName:'新华社', workCity:'上海', workEndDate:'2025-06-30', status:'PUBLISHED', apps:23, rec:true,  sourceUrl:'', sourceType:'PLATFORM', publishedAt:'2025-05-20' },
-  { id:2, positionName:'内容运营实习生', companyName:'腾讯新闻', workCity:'深圳', workEndDate:'2025-07-10', status:'OFFLINE',  apps:null, rec:false, sourceUrl:'', sourceType:'PLATFORM', publishedAt:'2025-05-18' },
-  { id:3, positionName:'企业公关传播实习', companyName:'字节跳动', workCity:'上海', workEndDate:'2025-07-15', status:'OFFLINE',  apps:null, rec:false, sourceUrl:'https://job.bytedance.com/1', sourceType:'CRAWL', publishedAt:'2025-05-17' },
-  { id:4, positionName:'数据新闻记者', companyName:'澎湃新闻', workCity:'上海', workEndDate:'2025-06-20', status:'OFFLINE',  apps:null, rec:false, sourceUrl:'https://job.thepaper.cn/2', sourceType:'CRAWL', publishedAt:'2025-05-16' },
-  { id:5, positionName:'新媒体编辑（人民网）', companyName:'人民日报社', workCity:'北京', workEndDate:'2025-07-01', status:'PUBLISHED', apps:11, rec:true,  sourceUrl:'', sourceType:'PLATFORM', publishedAt:'2025-05-12' },
-  { id:6, positionName:'财经记者', companyName:'财新传媒', workCity:'上海', workEndDate:'2025-05-01', status:'EXPIRED',  apps:8,  rec:false, sourceUrl:'', sourceType:'PLATFORM', publishedAt:'2025-04-10' },
-])
+const displayJobs = ref([])
+const displayDraftJobs = ref([])
+const readPageSize = 20
+const readJobPage = ref(1)
+const readJobTotal = ref(0)
+const readJobPages = ref(1)
+const readDraftPage = ref(1)
+const readDraftTotal = ref(0)
+const readDraftPages = ref(1)
 const STATUS_LABEL = { PUBLISHED:'发布中', OFFLINE:'未发布', EXPIRED:'已截止' }
 const STATUS_CLASS = { PUBLISHED:'badge-green', OFFLINE:'badge-gray', EXPIRED:'badge-amber' }
-const STATUS_ORDER = { PUBLISHED:0, OFFLINE:1, EXPIRED:2 }
-const filteredJobs = computed(() =>
-  jobs.value
-    .filter(j =>
-      (!sk.value || j.positionName.includes(sk.value) || j.companyName.includes(sk.value)) &&
-      (!sf.value || j.status === sf.value)
-    )
-    .slice()
-    .sort((a, b) => {
-      const sd = (STATUS_ORDER[a.status] ?? 9) - (STATUS_ORDER[b.status] ?? 9)
-      if (sd !== 0) return sd
-      return (b.publishedAt || '').localeCompare(a.publishedAt || '')
-    })
-)
-const draftJobs   = computed(() => jobs.value.filter(j => j.status === 'OFFLINE'))
-const onlineCount = computed(() => jobs.value.filter(j => j.status === 'PUBLISHED').length)
-const draftCount  = computed(() => draftJobs.value.length)
 
-function toggleAll(c) { selected.value = c ? filteredJobs.value.map(j=>j.id) : [] }
+function toggleAll(c) { selected.value = c ? displayJobs.value.map(j=>j.id) : [] }
 function toggleSel(id) { selected.value.includes(id) ? selected.value = selected.value.filter(i=>i!==id) : selected.value.push(id) }
-function toggleRec(j) { j.rec=!j.rec; toast.success(j.rec?'已设为推荐':'已取消推荐') }
-function publish(j) { j.status='PUBLISHED'; toast.success('已发布上线') }
+
+function mapJob(job) {
+  return { ...job, rec: !!job.recommended, apps: Number(job.applicationCount || 0) }
+}
+
+function jobPayload(job, status = job.status) {
+  const body = {}
+  for (const key of Object.keys(NJ_INIT())) {
+    if (key === 'questions') continue
+    const value = job[key]
+    body[key] = value === '' ? null : value
+  }
+  body.sourceType = job.sourceType || 'PLATFORM'
+  body.recommended = job.recommended ?? job.rec ?? false
+  body.status = status
+  return body
+}
+
+async function loadAdmin() {
+  try {
+    const [readUser, readProfile] = await Promise.all([
+      apiJson('/user/me'), apiJson('/user/profile/get'),
+    ])
+    displayAdminName.value = readProfile?.realName
+      || readUser?.username || readUser?.studentId || '管理员'
+  } catch {
+    displayAdminName.value = '管理员'
+  }
+}
+
+async function loadJobs() {
+  jobsLoading.value = true
+  displayJobError.value = ''
+  try {
+    const readParams = new URLSearchParams({
+      page:String(readJobPage.value), size:String(readPageSize),
+    })
+    if (sk.value.trim()) readParams.set('keyword', sk.value.trim())
+    if (sf.value) readParams.set('status', sf.value)
+    const readPage = await apiJson(`/admin/job-post/list?${readParams}`)
+    const readPages = Math.max(1, Number(readPage?.totalPages || 1))
+    if (readJobPage.value > readPages) {
+      readJobPage.value = readPages
+      return loadJobs()
+    }
+    displayJobs.value = (readPage?.list || []).map(mapJob)
+    readJobTotal.value = Number(readPage?.total || 0)
+    readJobPages.value = readPages
+  } catch (error) {
+    displayJobs.value = []
+    readJobTotal.value = 0
+    readJobPages.value = 1
+    displayJobError.value = error?.message || '岗位列表加载失败'
+  } finally {
+    jobsLoading.value = false
+  }
+}
+
+async function loadDrafts() {
+  draftsLoading.value = true
+  displayDraftError.value = ''
+  try {
+    const readPage = await apiJson(
+      `/admin/job-post/list?page=${readDraftPage.value}&size=${readPageSize}&status=OFFLINE`)
+    const readPages = Math.max(1, Number(readPage?.totalPages || 1))
+    if (readDraftPage.value > readPages) {
+      readDraftPage.value = readPages
+      return loadDrafts()
+    }
+    displayDraftJobs.value = (readPage?.list || []).map(mapJob)
+    readDraftTotal.value = Number(readPage?.total || 0)
+    readDraftPages.value = readPages
+  } catch (error) {
+    displayDraftJobs.value = []
+    readDraftTotal.value = 0
+    readDraftPages.value = 1
+    displayDraftError.value = error?.message || '草稿列表加载失败'
+  } finally {
+    draftsLoading.value = false
+  }
+}
+
+async function refreshJobs() {
+  await Promise.all([loadJobs(), loadDrafts()])
+}
+
+function searchJobs() {
+  readJobPage.value = 1
+  selected.value = []
+  loadJobs()
+}
+
+function showJobs() {
+  v.value = 'list'
+  loadJobs()
+}
+
+function showDrafts() {
+  v.value = 'drafts'
+  loadDrafts()
+}
+
+function changeJobPage(readPage) {
+  if (readPage < 1 || readPage > readJobPages.value || readPage === readJobPage.value) return
+  readJobPage.value = readPage
+  selected.value = []
+  loadJobs()
+}
+
+function changeDraftPage(readPage) {
+  if (readPage < 1 || readPage > readDraftPages.value || readPage === readDraftPage.value) return
+  readDraftPage.value = readPage
+  draftSelected.value = []
+  loadDrafts()
+}
+
+async function updateListedJob(job, patch, message) {
+  if (updatingJobs.value) return
+  updatingJobs.value = true
+  try {
+    await apiJson(`/admin/job-post/${job.id}`, {
+      method: 'PUT',
+      body: JSON.stringify(jobPayload({ ...job, ...patch }, patch.status ?? job.status)),
+    })
+    toast.success(message)
+    await refreshJobs()
+  } catch (error) {
+    toast.error(error?.message || '岗位更新失败')
+  } finally {
+    updatingJobs.value = false
+  }
+}
+
+function toggleRec(job) { return updateListedJob(job, { recommended: !job.rec }, job.rec ? '已取消推荐' : '已设为推荐') }
+function publish(job) { return updateListedJob(job, { status: 'PUBLISHED' }, '已发布上线') }
+function offline(job) { return updateListedJob(job, { status: 'OFFLINE' }, '已停止发布') }
 
 // 批量操作
-const publishableCount = computed(() => selected.value.filter(id => jobs.value.find(j=>j.id===id)?.status === 'OFFLINE').length)
-const offlinableCount  = computed(() => selected.value.filter(id => jobs.value.find(j=>j.id===id)?.status === 'PUBLISHED').length)
-const recableCount = computed(() => selected.value.filter(id => jobs.value.find(j=>j.id===id)?.status === 'PUBLISHED').length)
+const publishableCount = computed(() => selected.value.filter(id => displayJobs.value.find(j=>j.id===id)?.status === 'OFFLINE').length)
+const offlinableCount  = computed(() => selected.value.filter(id => displayJobs.value.find(j=>j.id===id)?.status === 'PUBLISHED').length)
+const recableCount = computed(() => selected.value.filter(id => displayJobs.value.find(j=>j.id===id)?.status === 'PUBLISHED').length)
 
-function bulkPublish() {
-  const n = publishableCount.value
-  if (!n) return
-  const skipped = selected.value.length - n
-  jobs.value.forEach(j => { if (selected.value.includes(j.id) && j.status === 'OFFLINE') j.status = 'PUBLISHED' })
-  toast.success(skipped > 0 ? `已发布 ${n} 条，跳过 ${skipped} 条（已发布或已截止）` : `已发布 ${n} 条`)
-  selected.value = []
+async function bulkUpdate(filter, patch, message) {
+  if (updatingJobs.value) return
+  const readJobs = v.value === 'drafts' ? displayDraftJobs.value : displayJobs.value
+  const targets = readJobs.filter(job => selected.value.includes(job.id) && filter(job))
+  if (!targets.length) return
+  updatingJobs.value = true
+  try {
+    await Promise.all(targets.map(job => apiJson(`/admin/job-post/${job.id}`, {
+      method: 'PUT', body: JSON.stringify(jobPayload({ ...job, ...patch }, patch.status ?? job.status)),
+    })))
+    toast.success(`${message} ${targets.length} 条`)
+    selected.value = []
+    draftSelected.value = []
+    await refreshJobs()
+  } catch (error) {
+    toast.error(error?.message || '批量操作失败，请刷新后确认结果')
+    await refreshJobs()
+  } finally {
+    updatingJobs.value = false
+  }
 }
-function bulkRec(on) {
-  const n = selected.value.length
-  jobs.value.forEach(j => { if (selected.value.includes(j.id)) j.rec = on })
-  toast.success(on ? `已将 ${n} 条设为推荐` : `已取消 ${n} 条推荐`)
-  selected.value = []
-}
-function bulkOffline() {
-  const n = offlinableCount.value
-  if (!n) return
-  const skipped = selected.value.length - n
-  jobs.value.forEach(j => { if (selected.value.includes(j.id) && j.status === 'PUBLISHED') j.status = 'OFFLINE' })
-  toast.success(skipped > 0 ? `已停止发布 ${n} 条，跳过 ${skipped} 条（未发布或已截止）` : `已停止发布 ${n} 条`)
-  selected.value = []
-}
+function bulkPublish() { return bulkUpdate(job => job.status === 'OFFLINE', { status: 'PUBLISHED' }, '已发布') }
+function bulkRec(on) { return bulkUpdate(job => job.status === 'PUBLISHED', { recommended: on }, on ? '已设为推荐' : '已取消推荐') }
+function bulkOffline() { return bulkUpdate(job => job.status === 'PUBLISHED', { status: 'OFFLINE' }, '已停止发布') }
 function bulkDelete(ids) {
   const targets = ids ?? selected.value
   const n = targets.length
   confirm_msg.value = `确认删除选中的 ${n} 条岗位？删除后无法找回。`
-  confirm_cb.value = () => {
-    jobs.value = jobs.value.filter(j => !targets.includes(j.id))
-    toast.success(`已删除 ${n} 条`)
-    selected.value = selected.value.filter(id => !targets.includes(id))
-    draftSelected.value = draftSelected.value.filter(id => !targets.includes(id))
+  confirm_cb.value = async () => {
+    if (updatingJobs.value) return
+    updatingJobs.value = true
+    try {
+      await Promise.all(targets.map(id => apiJson(`/admin/job-post/${id}`, { method: 'DELETE' })))
+      toast.success(`已删除 ${n} 条`)
+      selected.value = []
+      draftSelected.value = []
+      await refreshJobs()
+    } catch (error) {
+      toast.error(error?.message || '删除失败，请刷新后确认结果')
+      await refreshJobs()
+    } finally {
+      updatingJobs.value = false
+    }
   }
   show_confirm.value = true
 }
 
 // 草稿箱批量操作
-function draftToggleAll(c) { draftSelected.value = c ? draftJobs.value.map(j=>j.id) : [] }
+function draftToggleAll(c) { draftSelected.value = c ? displayDraftJobs.value.map(j=>j.id) : [] }
 function draftToggleSel(id) { draftSelected.value.includes(id) ? draftSelected.value = draftSelected.value.filter(i=>i!==id) : draftSelected.value.push(id) }
-function draftBulkPublish() {
-  const n = draftSelected.value.length
-  jobs.value.forEach(j => { if (draftSelected.value.includes(j.id)) { j.status='PUBLISHED' } })
-  toast.success(`已发布 ${n} 条`)
-  draftSelected.value = []
-}
+function draftBulkPublish() { selected.value = [...draftSelected.value]; return bulkPublish() }
 function draftBulkDelete() { bulkDelete([...draftSelected.value]) }
 
 const NJ_INIT = () => ({
@@ -779,56 +973,144 @@ function moveQ(idx, dir) {
 const nj = ref(NJ_INIT())
 const editingId = ref(null)
 
-function openEdit(j) {
-  editingId.value = j.id
-  nj.value = { ...NJ_INIT(), ...j, questions: j.questions ? [...j.questions] : [] }
-  deliveryMode.value = j.sourceUrl ? 'external' : 'internal'
+async function structureJob() {
+  if (!rawJobText.value.trim() || structuring.value) return
+  structuring.value = true
+  structureWarnings.value = []
+  structuredJobs.value = []
+  try {
+    const result = await apiJson('/admin/job-post/structure', {
+      method: 'POST', body: JSON.stringify({ text: rawJobText.value }),
+    })
+    structuredJobs.value = result?.jobs || []
+    structureWarnings.value = result?.warnings || []
+    if (structuredJobs.value.length === 1) applyStructuredJob(structuredJobs.value[0])
+    else if (!structuredJobs.value.length) toast.error('未识别出有效岗位，请调整原文后重试')
+    else toast.success(`识别到 ${structuredJobs.value.length} 个岗位，请选择一个`)
+  } catch (error) {
+    toast.error(error?.message || '岗位解析失败，请稍后重试')
+  } finally {
+    structuring.value = false
+  }
+}
+
+function applyStructuredJob(job) {
+  const questions = nj.value.questions
+  nj.value = { ...NJ_INIT(), ...job, sourceType: 'PLATFORM', status: 'OFFLINE', questions }
+  deliveryMode.value = job.sourceUrl ? 'external' : 'internal'
+  structuredJobs.value = []
+  toast.success('已填入标准字段，请检查后保存或发布')
+}
+
+async function openEdit(job) {
+  editingId.value = job.id
   v.value = 'create'
+  savingJob.value = true
+  try {
+    const [detail, questions] = await Promise.all([
+      apiJson(`/admin/job-post/${job.id}`),
+      apiJson(`/admin/questionnaire/questions/${job.id}`),
+    ])
+    nj.value = { ...NJ_INIT(), ...detail, questions: questions || [] }
+    deliveryMode.value = detail.sourceUrl ? 'external' : 'internal'
+  } catch (error) {
+    toast.error(error?.message || '岗位详情加载失败')
+    v.value = 'list'
+    editingId.value = null
+  } finally {
+    savingJob.value = false
+  }
 }
 function _validate() {
   if (!nj.value.positionName || !nj.value.companyName) { toast.error('请填写岗位名称和公司'); return false }
   if (!nj.value.jobCategory) { toast.error('请选择岗位大类'); return false }
+  if (!nj.value.jobDesc) { toast.error('请填写岗位描述'); return false }
+  if (deliveryMode.value === 'external' && !nj.value.sourceUrl) { toast.error('请填写官网投递链接'); return false }
+  if (deliveryMode.value === 'internal' && nj.value.questions.some(question => !question.title?.trim())) {
+    toast.error('请补全问卷题目标题')
+    return false
+  }
   return true
 }
-function _resetForm() { nj.value = NJ_INIT(); editingId.value = null; isExternal.value = false; deliveryMode.value = 'internal' }
-
-function saveDraft() {
-  if (!_validate()) return
-  const now = new Date().toISOString().slice(0,10)
-  if (editingId.value) {
-    const j = jobs.value.find(j => j.id === editingId.value)
-    if (j) Object.assign(j, { ...nj.value })
-    toast.success('已保存修改')
-  } else {
-    jobs.value.unshift({ id:Date.now(), ...nj.value, status:'OFFLINE', apps:null, rec:false, publishedAt:now })
-    toast.success('已保存为草稿')
-  }
-  v.value = 'list'; _resetForm()
+function _resetForm() {
+  nj.value = NJ_INIT()
+  editingId.value = null
+  isExternal.value = false
+  deliveryMode.value = 'internal'
+  rawJobText.value = ''
+  structuredJobs.value = []
+  structureWarnings.value = []
 }
 
-function publishJob() {
-  if (!_validate()) return
-  const now = new Date().toISOString().slice(0,10)
-  if (editingId.value) {
-    const j = jobs.value.find(j => j.id === editingId.value)
-    if (j) {
-      const wasPublished = j.status === 'PUBLISHED'
-      const doSave = () => {
-        Object.assign(j, { ...nj.value, status:'PUBLISHED', publishedAt: j.publishedAt || now })
-        toast.success('修改已保存并立即生效')
-        v.value = 'list'; _resetForm()
-      }
-      if (wasPublished) {
-        confirm_cb.value = doSave
-        confirm_msg.value = '该岗位当前已发布，修改将立即对学生生效。确认保存？'
-        show_confirm.value = true
-      } else { doSave() }
-    }
-  } else {
-    jobs.value.unshift({ id:Date.now(), ...nj.value, status:'PUBLISHED', apps:0, rec:false, publishedAt:now })
-    toast.success('已发布，学生可见')
-    v.value = 'list'; _resetForm()
+function startCreate() {
+  _resetForm()
+  v.value = 'create'
+}
+
+async function saveQuestions(jobId) {
+  if (deliveryMode.value === 'external' || !nj.value.questions.length) {
+    if (editingId.value) await apiJson(`/admin/questionnaire/questions/${jobId}`, { method: 'DELETE' })
+    return
   }
+  const questions = nj.value.questions.map((question, index) => ({
+    sortOrder: index + 1,
+    title: question.title.trim(),
+    questionType: question.questionType,
+    options: (question.options || []).map(option => option.trim()).filter(Boolean),
+    required: !!question.required,
+    placeholder: question.placeholder || '',
+  }))
+  await apiJson(`/admin/questionnaire/questions/batch/${jobId}`, {
+    method: 'POST', body: JSON.stringify(questions),
+  })
+}
+
+async function persistJob(targetStatus) {
+  if (!_validate()) return
+  savingJob.value = true
+  let jobId = editingId.value
+  try {
+    if (!jobId) {
+      const created = await apiJson('/admin/job-post', {
+        method: 'POST', body: JSON.stringify(jobPayload(nj.value, 'OFFLINE')),
+      })
+      jobId = created.id
+    } else {
+      await apiJson(`/admin/job-post/${jobId}`, {
+        method: 'PUT', body: JSON.stringify(jobPayload(nj.value, 'OFFLINE')),
+      })
+    }
+    await saveQuestions(jobId)
+    if (targetStatus === 'PUBLISHED') {
+      await apiJson(`/admin/job-post/${jobId}`, {
+        method: 'PUT', body: JSON.stringify(jobPayload(nj.value, 'PUBLISHED')),
+      })
+    }
+    toast.success(targetStatus === 'PUBLISHED' ? '已发布，学生可见' : '已保存为草稿')
+    v.value = 'list'
+    _resetForm()
+    await refreshJobs()
+  } catch (error) {
+    if (!editingId.value && jobId) editingId.value = jobId
+    toast.error(error?.message || '保存失败；新岗位已保留为未发布草稿')
+    await refreshJobs()
+  } finally {
+    savingJob.value = false
+  }
+}
+
+function saveDraft() { return persistJob('OFFLINE') }
+
+function publishJob() {
+  const current = [...displayJobs.value, ...displayDraftJobs.value]
+    .find(job => job.id === editingId.value)
+  if (current?.status === 'PUBLISHED') {
+    confirm_cb.value = () => persistJob('PUBLISHED')
+    confirm_msg.value = '该岗位当前已发布，修改将立即对学生生效。确认保存？'
+    show_confirm.value = true
+    return
+  }
+  return persistJob('PUBLISHED')
 }
 
 // ── 简历管理 ──
@@ -836,98 +1118,20 @@ const resumeSel     = ref([])
 const expandedRow   = ref(null)
 const currentJobGroup = ref(null)
 
-// 模拟当前岗位的题目配置，对应后端 JobPostQuestionResponse[]
-// 包含所有五种 QuestionType
-const questionsBase = [
-  { id: 1001, sortOrder: 1, title: '姓名',           questionType: 'TEXT',        required: true,  placeholder: '请填写真实姓名',   options: [] },
-  { id: 1002, sortOrder: 2, title: '性别',           questionType: 'RADIO',       required: true,  placeholder: '',               options: ['男', '女', '其他'] },
-  { id: 1003, sortOrder: 3, title: '年级',           questionType: 'RADIO',       required: true,  placeholder: '',               options: ['2021级', '2022级', '2023级', '2024级'] },
-  { id: 1004, sortOrder: 4, title: '期望实习时长',   questionType: 'CHECKBOX',    required: true,  placeholder: '',               options: ['3个月以内', '3-6个月', '6个月以上'] },
-  { id: 1005, sortOrder: 5, title: '请简述您的新闻从业经历或相关实习经历', questionType: 'TEXTAREA', required: true,  placeholder: '如：曾在XX媒体实习X个月，负责……', options: [] },
-  { id: 1006, sortOrder: 6, title: '您对该岗位最感兴趣的方向是什么？',     questionType: 'TEXTAREA', required: true,  placeholder: '',               options: [] },
-  { id: 1007, sortOrder: 7, title: '个人简历',       questionType: 'FILE_UPLOAD', required: true,  placeholder: '',               options: [] },
-]
-
-// answers 为 QuestionnaireAnswerResponse.answers 的 JSON 字符串
-// FILE_UPLOAD 的 value 为后端文件 ID / URL
-const SAMPLE_PDF = 'https://mozilla.github.io/pdf.js/web/viewer.html?file=https%3A%2F%2Fmozilla.github.io%2Fpdf.js%2Fweb%2Fcompressed.tracemonkey-pldi-09.pdf'
-const jobGroups = computed(() => [
-  {
-    jobId: 1, title:'新媒体编辑记者', company:'新华社', dl:'06-30',
-    questions: questionsBase,
-    resumes: [
-      {
-        name:'李同学', sid:'22110001', date:'2025-05-20', isRevised:true, revisedAt:'2025-05-24',
-        answers: JSON.stringify([
-          { questionId:1001, value:'李明远' },
-          { questionId:1002, value:'男' },
-          { questionId:1003, value:'2022级' },
-          { questionId:1004, value:'3-6个月' },
-          { questionId:1005, value:'曾在光明日报实习六个月，参与日报采编工作，独立发稿 30 余篇。' },
-          { questionId:1006, value:'对深度报道与数据新闻最感兴趣，希望将数据可视化引入新闻生产流程。' },
-          { questionId:1007, value:SAMPLE_PDF },
-        ])
-      },
-      {
-        name:'王同学', sid:'22110008', date:'2025-05-19',
-        answers: JSON.stringify([
-          { questionId:1001, value:'王雨欣' },
-          { questionId:1002, value:'女' },
-          { questionId:1003, value:'2022级' },
-          { questionId:1004, value:'3个月以内' },
-          { questionId:1005, value:'曾在澎湃新闻实习四个月，主要负责社会新闻线索整理与稿件校对。' },
-          { questionId:1006, value:'对评论写作与时事分析最感兴趣，希望成长为评论员。' },
-          { questionId:1007, value:SAMPLE_PDF },
-        ])
-      },
-      {
-        name:'赵同学', sid:'22110022', date:'2025-05-17',
-        answers: JSON.stringify([
-          { questionId:1001, value:'赵晨阳' },
-          { questionId:1002, value:'男' },
-          { questionId:1003, value:'2023级' },
-          { questionId:1004, value:'6个月以上' },
-          { questionId:1005, value:'曾在中新社实习五个月，参与对外传播报道，英文稿发布 15 篇。' },
-          { questionId:1006, value:'对国际传播与涉外报道最感兴趣。' },
-          { questionId:1007, value:SAMPLE_PDF },
-        ])
-      },
-    ]
-  },
-  {
-    jobId: 5, title:'新媒体编辑', company:'人民日报社', dl:'07-01',
-    questions: questionsBase,
-    resumes: [
-      {
-        name:'陈同学', sid:'22110015', date:'2025-05-18',
-        answers: JSON.stringify([
-          { questionId:1001, value:'陈静怡' },
-          { questionId:1002, value:'女' },
-          { questionId:1003, value:'2022级' },
-          { questionId:1004, value:'3-6个月' },
-          { questionId:1005, value:'在校媒担任编辑两年，负责公众号内容策划与排版。' },
-          { questionId:1006, value:'对内容运营与用户增长最感兴趣。' },
-          { questionId:1007, value:SAMPLE_PDF },
-        ])
-      },
-      {
-        name:'孙同学', sid:'22110031', date:'2025-05-16',
-        answers: JSON.stringify([
-          { questionId:1001, value:'孙浩宇' },
-          { questionId:1002, value:'男' },
-          { questionId:1003, value:'2023级' },
-          { questionId:1004, value:'3个月以内,3-6个月' },
-          { questionId:1005, value:'在新浪新闻实习三个月，负责热点话题追踪与快讯编发。' },
-          { questionId:1006, value:'对时政类新媒体内容最感兴趣。' },
-          { questionId:1007, value:SAMPLE_PDF },
-        ])
-      },
-    ]
-  },
-])
-
+const displayResumeJobs = ref([])
+const resumeJobsLoading = ref(false)
+const displayResumeJobError = ref('')
+const readResumeJobPage = ref(1)
+const readResumeJobTotal = ref(0)
+const readResumeJobPages = ref(1)
+const answersLoading = ref(false)
+const displayAnswerError = ref('')
+const readAnswerPage = ref(1)
+const readAnswerTotal = ref(0)
+const readAnswerPages = ref(1)
+const jobGroups = computed(() => displayResumeJobs.value.map(mapResumeJob))
 // 解析 QuestionnaireAnswerResponse.answers JSON → [{...题目字段, value}]
-// CHECKBOX value 为逗号分隔字符串，FILE_UPLOAD value 为文件URL
+// CHECKBOX value 为逗号分隔字符串，FILE_UPLOAD value 为文件 ID
 function parseAnswers(questions, answersJson) {
   try {
     const arr = JSON.parse(answersJson)
@@ -941,71 +1145,207 @@ function parseAnswers(questions, answersJson) {
   } catch { return [] }
 }
 
-function openJobResumes(jg) {
-  currentJobGroup.value = jg
+function mapResumeJob(readJob) {
+  return {
+    jobId:readJob.id,
+    title:readJob.positionName,
+    company:readJob.companyName,
+    dl:(readJob.workEndDate || '').slice(5, 10),
+    applicationCount:Number(readJob.applicationCount || 0),
+    questions:[],
+    resumes:[],
+  }
+}
+
+async function loadResumeJobs() {
+  resumeJobsLoading.value = true
+  displayResumeJobError.value = ''
+  try {
+    const readPage = await apiJson(
+      `/admin/job-post/list?page=${readResumeJobPage.value}&size=${readPageSize}&status=PUBLISHED`)
+    const readPages = Math.max(1, Number(readPage?.totalPages || 1))
+    if (readResumeJobPage.value > readPages) {
+      readResumeJobPage.value = readPages
+      return loadResumeJobs()
+    }
+    displayResumeJobs.value = (readPage?.list || []).map(mapJob)
+    readResumeJobTotal.value = Number(readPage?.total || 0)
+    readResumeJobPages.value = readPages
+  } catch (readError) {
+    displayResumeJobs.value = []
+    readResumeJobTotal.value = 0
+    readResumeJobPages.value = 1
+    displayResumeJobError.value = readError?.message || '投递岗位加载失败'
+  } finally {
+    resumeJobsLoading.value = false
+  }
+}
+
+function showResumes() {
+  v.value = 'resumes'
+  currentJobGroup.value = null
+  resumeSel.value = []
+  expandedRow.value = null
+  loadResumeJobs()
+}
+
+function changeResumeJobPage(readPage) {
+  if (readPage < 1 || readPage > readResumeJobPages.value
+      || readPage === readResumeJobPage.value) return
+  readResumeJobPage.value = readPage
+  loadResumeJobs()
+}
+
+function mapAnswer(readAnswer) {
+  return {
+    id:readAnswer.id,
+    name:readAnswer.username || '未知学生',
+    sid:readAnswer.studentId || '',
+    date:(readAnswer.updatedAt || readAnswer.createdAt || '').slice(0, 10),
+    answers:readAnswer.answers || '[]',
+    submissionStatus:readAnswer.submissionStatus,
+    statusLabel:readAnswer.statusLabel || '',
+    reviewPassed:readAnswer.reviewPassed,
+    reviewComments:readAnswer.reviewComments || '',
+    reviewedAt:readAnswer.reviewedAt || '',
+  }
+}
+
+async function loadAnswers() {
+  if (!currentJobGroup.value) return
+  answersLoading.value = true
+  displayAnswerError.value = ''
+  try {
+    const readJobId = currentJobGroup.value.jobId
+    const [readQuestions, readPage] = await Promise.all([
+      apiJson(`/admin/questionnaire/questions/${readJobId}`),
+      apiJson(`/admin/questionnaire/answers/job/${readJobId}?page=${readAnswerPage.value}&size=${readPageSize}`),
+    ])
+    const readPages = Math.max(1, Number(readPage?.totalPages || 1))
+    if (readAnswerPage.value > readPages) {
+      readAnswerPage.value = readPages
+      return loadAnswers()
+    }
+    currentJobGroup.value = {
+      ...currentJobGroup.value,
+      questions:readQuestions || [],
+      resumes:(readPage?.list || []).map(mapAnswer),
+    }
+    readAnswerTotal.value = Number(readPage?.total || 0)
+    readAnswerPages.value = readPages
+  } catch (readError) {
+    currentJobGroup.value = { ...currentJobGroup.value, questions:[], resumes:[] }
+    readAnswerTotal.value = 0
+    readAnswerPages.value = 1
+    displayAnswerError.value = readError?.message || '投递记录加载失败'
+  } finally {
+    answersLoading.value = false
+  }
+}
+
+function openJobResumes(readGroup) {
+  currentJobGroup.value = { ...readGroup, questions:[], resumes:[] }
+  readAnswerPage.value = 1
   resumeSel.value = []
   expandedRow.value = null
   v.value = 'resumeDetail'
-}
-function goJobResumes(j) {
-  const jg = jobGroups.value.find(g => g.jobId === j.id)
-  currentJobGroup.value = jg ?? null
-  resumeSel.value = []
-  expandedRow.value = null
-  v.value = jg ? 'resumeDetail' : 'resumes'
+  loadAnswers()
 }
 
-function toggleResumeSel(sid) {
-  resumeSel.value.includes(sid)
-    ? resumeSel.value = resumeSel.value.filter(s=>s!==sid)
-    : resumeSel.value.push(sid)
+function goJobResumes(readJob) {
+  openJobResumes(mapResumeJob(readJob))
+}
+
+function changeAnswerPage(readPage) {
+  if (readPage < 1 || readPage > readAnswerPages.value || readPage === readAnswerPage.value) return
+  readAnswerPage.value = readPage
+  resumeSel.value = []
+  expandedRow.value = null
+  loadAnswers()
+}
+
+function toggleResumeSel(readId) {
+  resumeSel.value.includes(readId)
+    ? resumeSel.value = resumeSel.value.filter(readValue => readValue !== readId)
+    : resumeSel.value.push(readId)
 }
 
 const exportMenuOpen  = ref(false)
 const exportMenuOpen2 = ref(false)
-const previewUrl  = ref(null)
-const previewName = ref('')
 
-function previewResume(r) {
+async function reviewAnswer(updateAnswer, updatePassed) {
+  const updateComments = window.prompt('请输入审核意见', updatePassed ? '审核通过' : '审核未通过')
+  if (!updateComments) return
   try {
-    const arr = JSON.parse(r.answers)
-    const q = currentJobGroup.value.questions.find(q => q.questionType === 'FILE_UPLOAD')
-    const ans = q ? arr.find(a => a.questionId === q.id) : null
-    if (ans?.value) {
-      // 用 Google Docs viewer 包裹以支持跨域 PDF 预览
-      const url = ans.value.startsWith('http') ? ans.value : `https://${ans.value}`
-      previewUrl.value = url.includes('viewer.html') ? url : `https://docs.google.com/viewer?url=${encodeURIComponent(url)}&embedded=true`
-      previewName.value = r.name
-    } else {
-      toast.error('该投递暂无简历附件')
-    }
-  } catch { toast.error('无法读取简历') }
+    const readAnswer = await apiJson(`/admin/questionnaire/answers/${updateAnswer.id}/review`, {
+      method:'PUT', body:JSON.stringify({ passed:updatePassed, comments:updateComments }),
+    })
+    Object.assign(updateAnswer, mapAnswer(readAnswer))
+    toast.success('审核完成')
+  } catch (readError) {
+    toast.error(readError?.message || '审核失败')
+  }
+}
+
+async function reviewAnswers(updatePassed) {
+  if (!currentJobGroup.value) return
+  const updateComments = window.prompt('请输入批量审核意见', updatePassed ? '批量审核通过' : '批量审核未通过')
+  if (!updateComments) return
+  try {
+    const readCount = await apiJson(
+      `/admin/questionnaire/answers/job/${currentJobGroup.value.jobId}/review-batch`, {
+        method:'PUT', body:JSON.stringify({ passed:updatePassed, comments:updateComments }),
+      })
+    await loadAnswers()
+    toast.success(`已审核 ${readCount} 条投递`)
+  } catch (readError) {
+    toast.error(readError?.message || '批量审核失败')
+  }
 }
 
 onMounted(() => {
+  loadAdmin()
+  loadJobs()
+  loadDrafts()
   window.addEventListener('click', () => {
     exportMenuOpen.value = false
     exportMenuOpen2.value = false
   })
 })
 
-function exportData(type) {
-  const targets = resumeSel.value.length
-    ? currentJobGroup.value.resumes.filter(r => resumeSel.value.includes(r.sid))
-    : currentJobGroup.value.resumes
-  const n = targets.length
-  const revisedCount = targets.filter(r => r.isRevised).length
-  const names = targets.map(r => r.name).join('、')
-  // 导出始终使用最新版本（isRevised 的已自动覆盖），提示管理员
-  const revisedNote = revisedCount > 0 ? `（含 ${revisedCount} 份已更新版本，自动采用最新数据）` : ''
-  if (type === 'questionnaire') toast.success(`正在导出 ${n} 份问卷数据（Excel）${revisedNote}：${names}`)
-  else if (type === 'resume') toast.success(`正在打包 ${n} 份简历附件（ZIP）${revisedNote}：${names}`)
-  else toast.success(`正在导出 ${n} 份问卷 + 简历（ZIP）${revisedNote}：${names}`)
-  resumeSel.value = []
+async function exportData(readFormat) {
+  if (!currentJobGroup.value) return
+  const readParams = new URLSearchParams({ format:readFormat })
+  resumeSel.value.forEach(readId => readParams.append('answerIds', readId))
+  try {
+    const readBlob = await apiDownloadBlob(
+      `/admin/questionnaire/answers/job/${currentJobGroup.value.jobId}/export?${readParams}`)
+    const readUrl = URL.createObjectURL(readBlob)
+    const createLink = document.createElement('a')
+    createLink.href = readUrl
+    createLink.download = `applications-${currentJobGroup.value.jobId}.${readFormat}`
+    createLink.click()
+    URL.revokeObjectURL(readUrl)
+    resumeSel.value = []
+  } catch (readError) {
+    toast.error(readError?.message || '导出失败')
+  }
 }
 </script>
 
 <style scoped>
+.action-disabled {
+  cursor: wait;
+  opacity: .6;
+  pointer-events: none;
+}
+.table-state {
+  padding: 2.5rem !important;
+  text-align: center;
+  color: var(--ink-3);
+}
+.table-state .btn { margin-top: .75rem; }
+
 /* ── PDF 预览弹窗 ── */
 .preview-box {
   background: var(--bg-card);

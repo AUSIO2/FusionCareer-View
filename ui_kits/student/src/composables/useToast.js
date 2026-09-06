@@ -1,18 +1,21 @@
 import { ref } from 'vue'
 
 const toasts = ref([])
-let _id = 0
+let createToastId = 0
 
 export function useToast() {
-  function show(msg, type = 'default', ms = 2800) {
-    const id = ++_id
-    toasts.value.push({ id, msg, type })
-    setTimeout(() => { toasts.value = toasts.value.filter(t => t.id !== id) }, ms)
+  function showToast(readMessage, readType = 'default', readDuration = 2800) {
+    if (toasts.value.some(readToast => readToast.msg === readMessage && readToast.type === readType)) return
+    const createId = ++createToastId
+    toasts.value.push({ id:createId, msg:readMessage, type:readType })
+    setTimeout(() => {
+      toasts.value = toasts.value.filter(readToast => readToast.id !== createId)
+    }, readDuration)
   }
   return {
     toasts,
-    show,
-    success: m => show(m, 'success'),
-    error:   m => show(m, 'error'),
+    show: showToast,
+    success: readMessage => showToast(readMessage, 'success'),
+    error: readMessage => showToast(readMessage, 'error'),
   }
 }
