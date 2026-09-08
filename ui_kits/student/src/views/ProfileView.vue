@@ -638,23 +638,27 @@ function pickProfile(p) {
   if (!p) return emptyProfile()
   return {
     userId: p.userId ?? null,
-    realName: p.realName ?? '',
-    gender: p.gender ?? '',
-    birthDate: p.birthDate ?? '',
-    politicalStatus: p.politicalStatus ?? '',
-    phone: p.phone ?? '',
-    email: p.email ?? '',
-    wechat: p.wechat ?? '',
-    hometown: p.hometown ?? '',
-    grade: p.grade ?? '',
-    major: p.major ?? '',
-    eduLevel: p.eduLevel ?? '',
-    supervisor: p.supervisor ?? '',
-    intentionOrder: p.intentionOrder ?? '',
-    intentionCity: p.intentionCity ?? '',
-    intentionDream: p.intentionDream ?? '',
-    mindset: p.mindset ?? '',
+    realName: readProfileText(p.realName),
+    gender: readProfileText(p.gender),
+    birthDate: readProfileText(p.birthDate),
+    politicalStatus: readProfileText(p.politicalStatus),
+    phone: readProfileText(p.phone),
+    email: readProfileText(p.email),
+    wechat: readProfileText(p.wechat),
+    hometown: readProfileText(p.hometown),
+    grade: readProfileText(p.grade),
+    major: readProfileText(p.major),
+    eduLevel: readProfileText(p.eduLevel),
+    supervisor: readProfileText(p.supervisor),
+    intentionOrder: readProfileText(p.intentionOrder),
+    intentionCity: readProfileText(p.intentionCity),
+    intentionDream: readProfileText(p.intentionDream),
+    mindset: readProfileText(p.mindset),
   }
+}
+
+function readProfileText(readValue) {
+  return readValue == null || String(readValue).toLowerCase() === 'null' ? '' : readValue
 }
 
 function pickResume(r) {
