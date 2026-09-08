@@ -33,7 +33,7 @@
               <div v-if="job.workCity" class="info-item"><i class="ti ti-map-pin"></i>{{ job.workCity }}</div>
               <div v-if="job.salaryDisplay" class="info-item"><i class="ti ti-coin"></i>{{ job.salaryDisplay }}</div>
               <div v-if="job.workMode" class="info-item"><i class="ti ti-building"></i>{{ workModeLabel }}</div>
-              <div v-if="job.workEndDate" class="info-item"><i class="ti ti-calendar-due"></i>截止 {{ job.workEndDate.slice(0,10) }}</div>
+              <div v-if="job.workStartDate || job.workEndDate" class="info-item"><i class="ti ti-calendar-event"></i>工作日期 {{ workPeriod }}</div>
               <div v-if="job.recruitType" class="info-item"><i class="ti ti-users"></i>{{ recruitLabel }}</div>
             </div>
             <div class="divider"></div>
@@ -62,7 +62,7 @@
             </div>
             <div style="font-size:.773rem;color:var(--ink-2);margin-bottom:1rem;display:flex;align-items:center;gap:.4rem">
               <i class="ti ti-calendar-due" style="color:var(--ink-3)"></i>
-              截止日期：{{ job.workEndDate ? job.workEndDate.slice(0,10) : '未设置' }}
+              投递截止：{{ jobDeadline || '未设置' }}
             </div>
             <!-- 外部投递 -->
             <template v-if="job.sourceUrl">
@@ -221,6 +221,12 @@ const RECRUIT_MAP = { BIG_INTERNSHIP: '大实习', SMALL_INTERNSHIP: '小实习'
 const workModeLabel = computed(() => (job.value ? (WORK_MODE_MAP[job.value.workMode] || '') : ''))
 const eduLabel = computed(() => (job.value ? (EDU_MAP[job.value.reqEduLevel] || '') : ''))
 const recruitLabel = computed(() => (job.value ? (RECRUIT_MAP[job.value.recruitType] || '') : ''))
+const jobDeadline = computed(() => (job.value?.applicationDeadline || '').slice(0, 10))
+const workPeriod = computed(() => {
+  const start = (job.value?.workStartDate || '').slice(0, 10)
+  const end = (job.value?.workEndDate || '').slice(0, 10)
+  return [start, end].filter(Boolean).join(' 至 ')
+})
 
 function applyQuestionnaireMeta(data) {
   questionnaireExpired.value = !!data?.expired
@@ -389,7 +395,7 @@ async function fetchJob() {
         applyQuestionnaireMeta(bundle)
       } catch (readError) {
         questionnaireExpired.value = false
-        questionnaireDeadline.value = job.value?.workEndDate || ''
+        questionnaireDeadline.value = job.value?.applicationDeadline || ''
         toast.error(readError?.message || '问卷信息加载失败')
       }
       try {

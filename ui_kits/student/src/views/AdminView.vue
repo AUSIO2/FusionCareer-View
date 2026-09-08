@@ -67,7 +67,7 @@
               <thead>
                 <tr>
                   <th class="col-check"><input type="checkbox" :checked="displayJobs.length>0 && displayJobs.every(j=>selected.includes(j.id))" @change="e=>toggleAll(e.target.checked)" /></th>
-                  <th>岗位名称</th><th>公司</th><th>城市</th><th>截止</th><th>状态</th><th>投递数</th><th>推荐</th><th>操作</th>
+                  <th>岗位名称</th><th>公司</th><th>城市</th><th>投递截止</th><th>状态</th><th>投递数</th><th>推荐</th><th>操作</th>
                 </tr>
               </thead>
               <tbody>
@@ -85,7 +85,7 @@
                   <td><span style="font-weight:500;cursor:pointer;color:var(--ink)" @click="openEdit(j)">{{ j.positionName }}</span></td>
                   <td>{{ j.companyName }}</td>
                   <td>{{ j.workCity }}</td>
-                  <td>{{ j.workEndDate }}</td>
+                  <td>{{ j.applicationDeadline || '—' }}</td>
                   <td><span :class="['badge', STATUS_CLASS[j.status]]">{{ STATUS_LABEL[j.status] }}</span></td>
                   <td>
                     <span v-if="j.sourceUrl" class="badge badge-gray" style="font-size:.72rem;gap:3px"><i class="ti ti-external-link" style="font-size:9px" />外部投递</span>
@@ -97,7 +97,7 @@
                       <div class="tbl-btn" @click="openEdit(j)"><span class="tbl-tip">编辑</span><i class="ti ti-edit" /></div>
                       <div v-if="j.status==='OFFLINE'" :class="['tbl-btn approve', updatingJobs&&'action-disabled']" @click="publish(j)"><span class="tbl-tip">发布上线</span><i class="ti ti-send" /></div>
                       <div v-else-if="j.status==='PUBLISHED'" :class="['tbl-btn', updatingJobs&&'action-disabled']" @click="offline(j)"><span class="tbl-tip">停止发布</span><i class="ti ti-send-off" /></div>
-                      <div v-if="j.status!=='OFFLINE'" class="tbl-btn" @click="goJobResumes(j)"><span class="tbl-tip">查看简历</span><i class="ti ti-file-text" /></div>
+                      <div v-if="j.status!=='OFFLINE' && !j.sourceUrl" class="tbl-btn" @click="goJobResumes(j)"><span class="tbl-tip">查看简历</span><i class="ti ti-file-text" /></div>
                     </div>
                   </td>
                 </tr>
@@ -128,7 +128,7 @@
               <label class="form-label">岗位原文</label>
               <textarea class="form-control" style="min-height:140px" v-model="rawJobText" placeholder="粘贴完整岗位描述，系统将提取公司、岗位、地点、薪资和任职要求等字段…" />
             </div>
-            <div style="display:flex;align-items:center;justify-content:space-between;gap:.75rem;flex-wrap:wrap">
+            <div style="display:flex;align-items:center;justify-content:space-between;gap:.75rem;flex-wrap:wrap;margin-top:.875rem">
               <span style="font-size:.75rem;color:var(--ink-3)">解析结果只会填入下方表单，请检查并编辑后再发布。</span>
               <button type="button" class="btn btn-primary btn-sm" :disabled="structuring || !rawJobText.trim()" @click="structureJob">
                 <i :class="['ti', structuring ? 'ti-loader-2' : 'ti-sparkles']" />{{ structuring ? '正在解析…' : '解析并填充' }}
@@ -161,6 +161,9 @@
               </div>
               <div class="form-group"><label class="form-label">招聘人数</label>
                 <input class="form-control" type="number" min="1" v-model.number="nj.headcount" placeholder="若干" />
+              </div>
+              <div class="form-group"><label class="form-label">投递截止日期</label>
+                <input class="form-control" type="date" v-model="nj.applicationDeadline" />
               </div>
               <div class="form-group"><label class="form-label">岗位大类 <span class="req">*</span></label>
                 <select class="form-control" v-model="nj.jobCategory" @change="nj.jobSubCategory=''">
@@ -228,10 +231,10 @@
           <div class="card card-p" style="margin-bottom:1rem">
             <div class="form-section-title">工作安排</div>
             <div class="grid-2">
-              <div class="form-group"><label class="form-label">开始日期</label>
+              <div class="form-group"><label class="form-label">工作开始日期</label>
                 <input class="form-control" type="date" v-model="nj.workStartDate" />
               </div>
-              <div class="form-group"><label class="form-label">截止日期</label>
+              <div class="form-group"><label class="form-label">工作结束日期</label>
                 <input class="form-control" type="date" v-model="nj.workEndDate" />
               </div>
               <div class="form-group"><label class="form-label">工作省份</label>
@@ -422,7 +425,7 @@
                 <thead>
                   <tr>
                     <th class="col-check"><input type="checkbox" :checked="displayDraftJobs.length>0 && displayDraftJobs.every(j=>draftSelected.includes(j.id))" @change="e=>draftToggleAll(e.target.checked)" /></th>
-                    <th>岗位名称</th><th>公司</th><th>城市</th><th>截止</th><th>来源</th><th>操作</th>
+                    <th>岗位名称</th><th>公司</th><th>城市</th><th>投递截止</th><th>来源</th><th>操作</th>
                   </tr>
                 </thead>
                 <tbody>
@@ -431,7 +434,7 @@
                     <td><span style="font-weight:500;color:var(--ink)">{{ j.positionName }}</span></td>
                     <td>{{ j.companyName }}</td>
                     <td>{{ j.workCity }}</td>
-                    <td>{{ j.workEndDate || '—' }}</td>
+                    <td>{{ j.applicationDeadline || '—' }}</td>
                     <td>
                       <span v-if="j.sourceType==='CRAWL'" class="badge" style="background:var(--blue-bg,#eaf0fb);color:var(--blue,#1b4f9c);gap:3px;font-size:.7rem"><i class="ti ti-robot" style="font-size:9px" />自动导入</span>
                       <span v-else class="badge badge-gray" style="font-size:.7rem">手动录入</span>
@@ -481,7 +484,7 @@
               </div>
               <div class="jrc-row-meta">
                 <span class="badge badge-green" style="font-size:.7rem">发布中</span>
-                <span style="font-size:.75rem;color:var(--ink-3)">截止 {{ jg.dl }}</span>
+                <span v-if="jg.dl" style="font-size:.75rem;color:var(--ink-3)">截止 {{ jg.dl }}</span>
               </div>
               <div class="jrc-row-count">
                 <span class="jrc-count-num">{{ jg.applicationCount }}</span>
@@ -942,7 +945,7 @@ const NJ_INIT = () => ({
   positionName: '', companyName: '', department: '', headcount: null,
   jobCategory: '', jobSubCategory: '',
   recruitType: '', reqEduLevel: '',
-  workStartDate: '', workEndDate: '',
+  workStartDate: '', workEndDate: '', applicationDeadline: '',
   workProvince: '', workCity: '', workLocation: '',
   workMode: '', workDurationType: '', workDaysPerWeek: null, workPeriodType: '',
   salaryMin: null, salaryMax: null, salaryDisplay: '',
@@ -1150,7 +1153,7 @@ function mapResumeJob(readJob) {
     jobId:readJob.id,
     title:readJob.positionName,
     company:readJob.companyName,
-    dl:(readJob.workEndDate || '').slice(5, 10),
+    dl:(readJob.applicationDeadline || '').slice(5, 10),
     applicationCount:Number(readJob.applicationCount || 0),
     questions:[],
     resumes:[],
@@ -1162,7 +1165,7 @@ async function loadResumeJobs() {
   displayResumeJobError.value = ''
   try {
     const readPage = await apiJson(
-      `/admin/job-post/list?page=${readResumeJobPage.value}&size=${readPageSize}&status=PUBLISHED`)
+      `/admin/job-post/list?page=${readResumeJobPage.value}&size=${readPageSize}&status=PUBLISHED&internalApply=true`)
     const readPages = Math.max(1, Number(readPage?.totalPages || 1))
     if (readResumeJobPage.value > readPages) {
       readResumeJobPage.value = readPages

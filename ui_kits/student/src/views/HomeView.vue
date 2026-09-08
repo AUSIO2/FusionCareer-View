@@ -40,23 +40,10 @@
             <div class="fcell fcell-loc">
               <span class="flabel">地区</span>
               <div class="location-pair">
-                <!-- 自定义省份下拉（Teleport 到 body，解决父容器 overflow 裁剪） -->
-                <div class="cselect-wrap" :class="{ open: provinceOpen }" @click.stop>
-                  <button ref="provBtnRef" class="cselect-trigger filter-select" type="button" @click="toggleProvince" style="min-width:90px">
-                    <span>{{ provinceF || '全部省份' }}</span>
-                    <i class="ti ti-chevron-down cselect-arrow" />
-                  </button>
-                  <Teleport to="body">
-                    <div v-if="provinceOpen" class="cselect-dropdown-teleport" :style="provDropStyle" @click.stop>
-                      <div class="cselect-list">
-                        <div class="cselect-item" :class="{ active: provinceF === '' }" @click="selectProvince('')">全部省份</div>
-                        <div v-for="p in Object.keys(provinces)" :key="p"
-                          class="cselect-item" :class="{ active: provinceF === p }"
-                          @click="selectProvince(p)">{{ p }}</div>
-                      </div>
-                    </div>
-                  </Teleport>
-                </div>
+                <select class="filter-select" style="min-width:90px" v-model="provinceF" @change="changeProvince">
+                  <option value="">全部省份</option>
+                  <option v-for="p in Object.keys(provinces)" :key="p" :value="p">{{ p }}</option>
+                </select>
                 <select class="filter-select" v-model="cityF" :disabled="!provinceF" @change="fetchJobs">
                   <option value="">{{ provinceF ? '全部城市' : '请先选省份' }}</option>
                   <option v-for="c in (provinces[provinceF] || [])" :key="c">{{ c }}</option>
@@ -157,7 +144,7 @@
               最新发布
             </button>
             <button :class="['sort-btn', sortBy==='deadline' && 'active']" @click="setSort('deadline')">
-              截止日期
+              投递截止
             </button>
           </div>
         </div>
@@ -188,7 +175,7 @@
                 <span v-for="tag in j.l2tags" :key="tag" class="badge badge-gray">{{ tag }}</span>
               </div>
             </div>
-            <span class="job-dl">截止 {{ j.dl }}</span>
+            <span v-if="j.dl" class="job-dl">截止 {{ j.dl }}</span>
           </RouterLink>
 
           <div v-if="!jobs.length" style="text-align:center;padding:2.5rem;color:var(--ink-3);font-size:var(--fs-md)">
@@ -207,7 +194,7 @@
 </template>
 
 <script setup>
-import { ref, computed, onMounted, nextTick } from 'vue'
+import { ref, computed, onMounted } from 'vue'
 import { useRouter } from 'vue-router'
 import UserNavbar from '@/components/UserNavbar.vue'
 import { apiJson } from '@/lib/api'
@@ -228,38 +215,10 @@ const provinceF = ref('')
 const cityF     = ref('')
 const jobtypeF  = ref('')
 const recruitF  = ref('')
-const provinceOpen = ref(false)
-const provBtnRef   = ref(null)
-const provDropStyle = ref({})
 
-function toggleProvince() {
-  provinceOpen.value = !provinceOpen.value
-  if (provinceOpen.value) {
-    nextTick(() => {
-      const r = provBtnRef.value?.getBoundingClientRect()
-      if (r) {
-        provDropStyle.value = {
-          position: 'fixed',
-          top:  r.bottom + 4 + 'px',
-          left: r.left   + 'px',
-          minWidth: '140px',
-          zIndex: 9999,
-        }
-      }
-    })
-  }
-}
-
-function selectProvince(p) {
-  provinceF.value = p
+function changeProvince() {
   cityF.value = ''
-  provinceOpen.value = false
   fetchJobs()
-}
-
-// 点击外部关闭省份下拉
-if (typeof window !== 'undefined') {
-  document.addEventListener('click', () => { provinceOpen.value = false })
 }
 
 // ── 二级筛选（仅大实习/小实习） ──
@@ -361,7 +320,7 @@ const activeChips = computed(() =>
   chipDefs.map(d => ({ key: d.key, label: d.label() })).filter(c => c.label)
 )
 function clearFilter(key) {
-  if (key === 'province') { provinceF.value = ''; cityF.value = ''; provinceOpen.value = false }
+  if (key === 'province') { provinceF.value = ''; cityF.value = '' }
   else if (key === 'city')     cityF.value = ''
   else if (key === 'jobtype')  jobtypeF.value = ''
   else if (key === 'recruit') {
@@ -449,7 +408,7 @@ async function fetchJobs() {
       days: '',
       salary: j.salaryDisplay || '',
       mode: j.workMode || '',
-      dl: fmtDate(j.workEndDate),
+      dl: fmtDate(j.applicationDeadline),
       pub: (j.createdAt && String(j.createdAt).slice(0, 10)) || '',
       rec: false,
       recruitBadge: RECRUIT_BADGE[recruitLabel(j.recruitType)] || '',
@@ -591,48 +550,6 @@ onMounted(fetchJobs)
 .location-pair .filter-select:last-child  { border-radius: 0 var(--r-md) var(--r-md) 0; }
 .location-pair .filter-select:last-child:disabled { opacity: .38; cursor: not-allowed; }
 
-/* 自定义省份下拉 */
-.cselect-wrap { position: relative; }
-.cselect-trigger {
-  display: flex; align-items: center; justify-content: space-between; gap: .35rem;
-  width: 100%; text-align: left; cursor: pointer;
-  border-radius: var(--r-md) 0 0 var(--r-md) !important;
-  border-right: none !important;
-  padding-right: .65rem !important;
-  background-image: none !important;
-}
-.cselect-trigger span { flex: 1; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
-.cselect-arrow {
-  font-size: .7rem; color: var(--ink-3); flex-shrink: 0;
-  transition: transform var(--t);
-}
-.cselect-wrap.open .cselect-arrow { transform: rotate(180deg); }
-.cselect-dropdown {
-  position: absolute; top: calc(100% + 4px); left: 0;
-  z-index: 200; width: 140px;
-  background: var(--bg-card); border: 1px solid var(--border-mid);
-  border-radius: var(--r-lg); box-shadow: var(--shadow-md);
-}
-.cselect-dropdown-teleport {
-  width: 140px;
-  background: var(--bg-card); border: 1px solid var(--border-mid);
-  border-radius: var(--r-lg); box-shadow: var(--shadow-md);
-}
-.cselect-list {
-  max-height: 280px; overflow-y: auto;
-  padding: .3rem;
-  border-radius: var(--r-lg);
-}
-.cselect-list::-webkit-scrollbar { width: 4px; }
-.cselect-list::-webkit-scrollbar-thumb { background: var(--ink-4); border-radius: 2px; }
-.cselect-item {
-  padding: .38rem .75rem; border-radius: var(--r-sm);
-  font-size: .773rem; color: var(--ink-2); cursor: pointer;
-  transition: all var(--t); white-space: nowrap;
-}
-.cselect-item:hover { background: var(--bg-sunken); color: var(--ink); }
-.cselect-item.active { background: var(--red-light); color: var(--red); font-weight: 600; }
-
 .filter-select {
   height: 30px; padding: 0 1.6rem 0 .65rem;
   border: 1px solid var(--border-mid); border-radius: var(--r-md);
@@ -706,22 +623,4 @@ onMounted(fetchJobs)
 .job-meta span { font-size:.75rem; color:var(--ink-2); }
 .job-l2tags { display:flex; gap:.25rem; flex-wrap:wrap; margin-top:.25rem; }
 .job-dl { font-size:.7rem; color:var(--ink-3); white-space:nowrap; flex-shrink:0; }
-</style>
-
-<style>
-/* Teleport 到 body 的省份面板，scoped 无法覆盖，单独全局声明 */
-.cselect-dropdown-teleport .cselect-list {
-  max-height: 185px; overflow-y: auto;
-  padding: .3rem;
-  border-radius: var(--r-lg);
-}
-.cselect-dropdown-teleport .cselect-list::-webkit-scrollbar { width: 4px; }
-.cselect-dropdown-teleport .cselect-list::-webkit-scrollbar-thumb { background: var(--ink-4); border-radius: 2px; }
-.cselect-dropdown-teleport .cselect-item {
-  padding: .38rem .75rem; border-radius: var(--r-sm);
-  font-size: .773rem; color: var(--ink-2); cursor: pointer;
-  transition: all var(--t); white-space: nowrap;
-}
-.cselect-dropdown-teleport .cselect-item:hover { background: var(--bg-sunken); color: var(--ink); }
-.cselect-dropdown-teleport .cselect-item.active { background: var(--red-light); color: var(--red); font-weight: 600; }
 </style>
