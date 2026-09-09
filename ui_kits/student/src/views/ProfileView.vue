@@ -786,8 +786,7 @@ async function handleUpload(e) {
   uploading.value = true
   try {
     const result = await apiForm(`/user/resume/file/upload?updateProfile=${updateProfileOnUpload.value}`, fd)
-    if (result?.parseStatus === 'FAILED') toast.error(result.message || '文件已保存，资料更新失败，可点击闪光按钮重试')
-    else toast.success(result?.message || '上传成功')
+    showParseResult(result, '上传成功')
     await loadAll()
   } catch (err) {
     toast.error(err?.message || '上传失败')
@@ -801,16 +800,25 @@ async function parseResume(file) {
   parsingFileId.value = file.id
   try {
     const result = await apiJson(`/user/resume/file/${file.id}/parse`, { method: 'POST' })
-    if (result?.parseStatus === 'FAILED') toast.error(result.message || '资料更新失败，请稍后重试')
-    else {
+    if (result?.parseStatus === 'SUCCESS') {
       const count = (result?.updatedProfileFields?.length || 0) + (result?.updatedResumeFields?.length || 0)
       toast.success(count ? `资料更新成功，共更新 ${count} 个字段` : (result?.message || '资料已更新'))
       await loadAll()
-    }
+    } else showParseResult(result, '资料更新失败')
   } catch (err) {
     toast.error(err?.message || '资料更新失败，请稍后重试')
   } finally {
     parsingFileId.value = null
+  }
+}
+
+function showParseResult(readResult, readFallback) {
+  if (['ALGORITHM_FAILED', 'UPDATE_FAILED', 'FAILED'].includes(readResult?.parseStatus)) {
+    toast.error(readResult?.message || readFallback)
+  } else if (readResult?.parseStatus === 'NO_FIELDS') {
+    toast.error(readResult?.message || '未识别到可更新的资料')
+  } else {
+    toast.success(readResult?.message || readFallback)
   }
 }
 
