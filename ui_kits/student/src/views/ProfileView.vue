@@ -114,33 +114,40 @@
                 ref="fileInput"
                 type="file"
                 accept=".pdf,.jpg,.jpeg,.png"
-                :disabled="uploading"
+                :disabled="uploading || parsingFileId"
                 style="display:none"
                 @change="handleUpload"
               />
-              <div class="upload-zone" style="margin-top:1rem" :style="uploading ? 'opacity:.6;pointer-events:none' : ''" @click="fileInput?.click()">
+              <div class="upload-zone" style="margin-top:1rem" :style="uploading || parsingFileId ? 'opacity:.6;pointer-events:none' : ''" @click="fileInput?.click()">
                 <i :class="['ti', uploading ? 'ti-loader-2' : 'ti-cloud-upload']" />
-                <div class="uz-title">{{ uploading ? '正在上传并解析…' : '上传新简历' }}</div>
+                <div class="uz-title">{{ uploading ? (updateProfileOnUpload ? '正在上传并解析…' : '正在上传…') : '上传新简历' }}</div>
                 <div class="uz-hint">支持 PDF、JPG、PNG，单文件不超过 20 MB；个人总配额 30 MB（已用 {{ quotaUsedMb }} / {{ quotaTotalMb }} MB）</div>
               </div>
               <label style="display:flex;align-items:flex-start;gap:.5rem;margin-top:.75rem;font-size:.78rem;color:var(--ink-2);cursor:pointer">
-                <input type="checkbox" v-model="updateProfileOnUpload" :disabled="uploading" style="margin-top:.15rem" />
+                <input type="checkbox" v-model="updateProfileOnUpload" :disabled="uploading || parsingFileId" style="margin-top:.15rem" />
                 <span>使用简历解析结果更新“我的资料”和在线简历<br><small style="color:var(--ink-3)">勾选后，简历内容将发送至配置的 AI 服务进行解析。</small></span>
               </label>
+              <div v-if="parseProgressActive" class="parse-progress" role="status" aria-live="polite">
+                <div class="parse-progress-head">
+                  <span><i class="ti ti-sparkles" />正在解析简历</span>
+                  <span>已用时 {{ parseElapsedSeconds }} 秒</span>
+                </div>
+                <div class="parse-progress-track"><div class="parse-progress-bar" /></div>
+                <div class="parse-progress-tip">{{ parseProgressTip }}，请勿关闭页面</div>
+              </div>
               </template>
             </div>
             <div class="card card-p">
               <div class="panel-title"><i class="ti ti-notes" />简历正文</div>
-              <p style="font-size:.78rem;color:var(--ink-3);margin-bottom:1rem">以下内容对应后台「个人简历」富文本字段，保存后写入 /user/resume/save。</p>
-              <div class="form-group"><label class="form-label">个人简介</label><textarea class="form-control" style="min-height:72px" v-model="resumeForm.personalIntro" /></div>
-              <div class="form-group"><label class="form-label">基本信息</label><textarea class="form-control" style="min-height:72px" v-model="resumeForm.basicInfo" /></div>
-              <div class="form-group"><label class="form-label">教育经历</label><textarea class="form-control" style="min-height:72px" v-model="resumeForm.education" /></div>
-              <div class="form-group"><label class="form-label">实习经历</label><textarea class="form-control" style="min-height:72px" v-model="resumeForm.internship" /></div>
-              <div class="form-group"><label class="form-label">校园经历</label><textarea class="form-control" style="min-height:72px" v-model="resumeForm.campus" /></div>
-              <div class="form-group"><label class="form-label">获奖情况</label><textarea class="form-control" style="min-height:72px" v-model="resumeForm.awards" /></div>
-              <div class="form-group"><label class="form-label">技能特长</label><textarea class="form-control" style="min-height:72px" v-model="resumeForm.skills" /></div>
-              <div class="form-group"><label class="form-label">作品集 / 链接</label><textarea class="form-control" style="min-height:56px" v-model="resumeForm.portfolio" /></div>
-              <div class="form-group"><label class="form-label">备注</label><textarea class="form-control" style="min-height:56px" v-model="resumeForm.remark" /></div>
+              <div class="form-group"><label class="form-label">个人简介</label><textarea class="form-control resume-textarea" v-model="resumeForm.personalIntro" /></div>
+              <div class="form-group"><label class="form-label">基本信息</label><textarea class="form-control resume-textarea" v-model="resumeForm.basicInfo" /></div>
+              <div class="form-group"><label class="form-label">教育经历</label><textarea class="form-control resume-textarea" v-model="resumeForm.education" /></div>
+              <div class="form-group"><label class="form-label">实习经历</label><textarea class="form-control resume-textarea" v-model="resumeForm.internship" /></div>
+              <div class="form-group"><label class="form-label">校园经历</label><textarea class="form-control resume-textarea" v-model="resumeForm.campus" /></div>
+              <div class="form-group"><label class="form-label">获奖情况</label><textarea class="form-control resume-textarea" v-model="resumeForm.awards" /></div>
+              <div class="form-group"><label class="form-label">技能特长</label><textarea class="form-control resume-textarea" v-model="resumeForm.skills" /></div>
+              <div class="form-group"><label class="form-label">作品集 / 链接</label><textarea class="form-control resume-textarea" v-model="resumeForm.portfolio" /></div>
+              <div class="form-group"><label class="form-label">备注</label><textarea class="form-control resume-textarea" v-model="resumeForm.remark" /></div>
               <div style="display:flex;justify-content:flex-end;gap:.5rem;margin-top:1rem">
                 <button type="button" class="btn btn-secondary" @click="resetResume">取消</button>
                 <button type="button" class="btn btn-primary" @click="saveResume"><i class="ti ti-check" />保存简历正文</button>
@@ -283,7 +290,7 @@
 </template>
 
 <script setup>
-import { ref, computed, watch, onMounted } from 'vue'
+import { ref, computed, watch, onMounted, onUnmounted } from 'vue'
 import { useRoute, useRouter } from 'vue-router'
 import UserNavbar from '@/components/UserNavbar.vue'
 import { useToast } from '@/composables/useToast'
@@ -626,6 +633,8 @@ const fileInput = ref(null)
 const updateProfileOnUpload = ref(false)
 const uploading = ref(false)
 const parsingFileId = ref(null)
+const parseElapsedSeconds = ref(0)
+let parseProgressTimer = null
 const showDeleteModal = ref(false)
 const deleteIndex = ref(null)
 
@@ -633,6 +642,26 @@ const avatarChar = computed(() => {
   const n = profileForm.value.realName?.trim()
   return n ? n.charAt(0) : '同'
 })
+
+const parseProgressActive = computed(() =>
+  !!parsingFileId.value || (uploading.value && updateProfileOnUpload.value)
+)
+const parseProgressTip = computed(() => {
+  if (parseElapsedSeconds.value < 15) return '正在读取简历文件'
+  if (parseElapsedSeconds.value < 90) return '正在识别并提取文字'
+  return '正在调用模型并更新资料'
+})
+
+function startParseProgress() {
+  clearInterval(parseProgressTimer)
+  parseElapsedSeconds.value = 0
+  parseProgressTimer = setInterval(() => { parseElapsedSeconds.value += 1 }, 1000)
+}
+
+function stopParseProgress() {
+  clearInterval(parseProgressTimer)
+  parseProgressTimer = null
+}
 
 function pickProfile(p) {
   if (!p) return emptyProfile()
@@ -784,6 +813,7 @@ async function handleUpload(e) {
   const fd = new FormData()
   fd.append('file', file)
   uploading.value = true
+  if (updateProfileOnUpload.value) startParseProgress()
   try {
     const result = await apiForm(`/user/resume/file/upload?updateProfile=${updateProfileOnUpload.value}`, fd)
     showParseResult(result, '上传成功')
@@ -792,12 +822,14 @@ async function handleUpload(e) {
     toast.error(err?.message || '上传失败')
   } finally {
     uploading.value = false
+    stopParseProgress()
   }
 }
 
 async function parseResume(file) {
   if (!file?.id || parsingFileId.value) return
   parsingFileId.value = file.id
+  startParseProgress()
   try {
     const result = await apiJson(`/user/resume/file/${file.id}/parse`, { method: 'POST' })
     if (result?.parseStatus === 'SUCCESS') {
@@ -809,8 +841,11 @@ async function parseResume(file) {
     toast.error(err?.message || '资料更新失败，请稍后重试')
   } finally {
     parsingFileId.value = null
+    stopParseProgress()
   }
 }
+
+onUnmounted(stopParseProgress)
 
 function showParseResult(readResult, readFallback) {
   if (['ALGORITHM_FAILED', 'UPDATE_FAILED', 'FAILED'].includes(readResult?.parseStatus)) {
@@ -981,6 +1016,41 @@ onMounted(() => {
 }
 .uz-hint {
   font-size: .96rem;
+}
+.parse-progress {
+  margin-top: 1rem;
+  padding: .9rem 1rem;
+  border: 1px solid var(--red-border);
+  border-radius: 16px;
+  background: var(--red-light);
+}
+.parse-progress-head {
+  display: flex;
+  justify-content: space-between;
+  gap: .75rem;
+  color: var(--ink);
+  font-size: .82rem;
+  font-weight: 650;
+}
+.parse-progress-head span:first-child { display: flex; align-items: center; gap: .35rem; }
+.parse-progress-track {
+  height: 7px;
+  margin: .7rem 0 .55rem;
+  overflow: hidden;
+  border-radius: 999px;
+  background: rgba(140, 21, 27, .14);
+}
+.parse-progress-bar {
+  width: 38%;
+  height: 100%;
+  border-radius: inherit;
+  background: var(--red);
+  animation: parse-progress 1.35s ease-in-out infinite;
+}
+.parse-progress-tip { color: var(--ink-3); font-size: .75rem; }
+@keyframes parse-progress {
+  from { transform: translateX(-110%); }
+  to { transform: translateX(285%); }
 }
 .btn-icon {
   width: 44px;
@@ -1203,6 +1273,12 @@ onMounted(() => {
   color: var(--ink-3);
 }
 .resume-picker-upload:hover { color: var(--red); }
+.resume-textarea {
+  min-height: 4.5rem;
+  field-sizing: content;
+  line-height: 1.65;
+  resize: vertical;
+}
 
 @media (max-width: 1100px) {
   .profile-page { width: min(92vw, 920px); padding-top: 1.3rem; }

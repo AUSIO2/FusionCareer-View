@@ -30,7 +30,7 @@ All design tokens (colors, type, radii, shadows) are declared in `src/assets/css
 | `/#/home`     | 岗位列表 + 推荐轮播 + 搜索筛选 | 用户端 · 首页 |
 | `/#/job/:id`  | 详情 + 问卷投递 + 简历选择器   | 用户端 · 岗位详情 |
 | `/#/profile`  | 我的资料 / 我的简历 / 我的投递 | 用户端 · 个人中心 |
-| `/#/admin`    | 岗位列表 · 新建 · 简历管理     | 管理员端（4 个页面合一） |
+| `/#/admin`    | 岗位列表 · 新建 · 简历管理 · 用户管理 | 管理员端 |
 
 ## File map
 
@@ -54,7 +54,7 @@ ui_kits/student/
         ├── HomeView.vue          carousel + filters + job list + sidebar
         ├── JobDetailView.vue     岗位详情 + 问卷投递弹窗 + 简历选择器
         ├── ProfileView.vue       sidebar nav with 3 panels
-        └── AdminView.vue         sidebar layout + stats + 3 admin views
+        └── AdminView.vue         岗位、简历、用户与权限管理
 ```
 
 ## Components

@@ -1,23 +1,28 @@
 <template>
   <div class="region-select">
     <!-- 省份按钮 -->
-    <div ref="provBtnRef" class="rs-btn" :class="{ active: provOpen || selectedProv }" @click="toggleProv">
+    <button ref="provBtnRef" type="button" class="rs-btn" :class="{ active: provOpen || selectedProv }"
+      aria-haspopup="listbox" :aria-expanded="provOpen" @click="toggleProv">
       <span>{{ selectedProv || '全部省份' }}</span>
       <i class="ti ti-chevron-down chev" :class="{ rotated: provOpen }" aria-hidden="true" />
-    </div>
+    </button>
 
     <div class="rs-divider" />
 
     <!-- 城市按钮 -->
-    <div
+    <button
       ref="cityBtnRef"
+      type="button"
       class="rs-btn"
-      :class="{ active: cityOpen || selectedCity, disabled: !selectedProv }"
+      :class="{ active: cityOpen || selectedCity }"
+      :disabled="!selectedProv"
+      aria-haspopup="listbox"
+      :aria-expanded="cityOpen"
       @click="toggleCity"
     >
-      <span>{{ selectedCity || (selectedProv ? '请选择城市' : '请先选省份') }}</span>
+      <span>{{ selectedCity || (selectedProv ? '全部城市' : '请先选省份') }}</span>
       <i class="ti ti-chevron-down chev" :class="{ rotated: cityOpen }" aria-hidden="true" />
-    </div>
+    </button>
 
     <!-- 省份面板 —— Teleport 到 body，脱离父容器裁剪 -->
     <Teleport to="body">
@@ -26,19 +31,28 @@
         ref="provPanelRef"
         class="rs-panel"
         :style="provStyle"
-        @mousedown.prevent
+        role="listbox"
+        @mousedown.stop
       >
+        <div class="rs-search">
+          <i class="ti ti-search" aria-hidden="true" />
+          <input ref="provSearchRef" v-model="provQuery" placeholder="搜索省份" aria-label="搜索省份" @keydown.esc="closePanels" />
+        </div>
         <div class="rs-scroll">
-          <template v-for="group in provinceGroups" :key="group.label">
+          <template v-for="group in filteredProvinceGroups" :key="group.label">
             <div class="rs-group-label">{{ group.label }}</div>
-            <div
+            <button
               v-for="p in group.items"
               :key="p"
+              type="button"
               class="rs-item"
               :class="{ selected: selectedProv === p }"
+              role="option"
+              :aria-selected="selectedProv === p"
               @click="selectProv(p)"
-            >{{ p }}</div>
+            >{{ p }}</button>
           </template>
+          <div v-if="!filteredProvinceGroups.length" class="rs-empty">没有匹配的省份</div>
         </div>
       </div>
     </Teleport>
@@ -50,16 +64,25 @@
         ref="cityPanelRef"
         class="rs-panel"
         :style="cityStyle"
-        @mousedown.prevent
+        role="listbox"
+        @mousedown.stop
       >
+        <div class="rs-search">
+          <i class="ti ti-search" aria-hidden="true" />
+          <input ref="citySearchRef" v-model="cityQuery" placeholder="搜索城市" aria-label="搜索城市" @keydown.esc="closePanels" />
+        </div>
         <div class="rs-scroll">
-          <div
-            v-for="c in currentCities"
+          <button
+            v-for="c in filteredCities"
             :key="c"
+            type="button"
             class="rs-item"
             :class="{ selected: selectedCity === c }"
+            role="option"
+            :aria-selected="selectedCity === c"
             @click="selectCity(c)"
-          >{{ c }}</div>
+          >{{ c }}</button>
+          <div v-if="!filteredCities.length" class="rs-empty">没有匹配的城市</div>
         </div>
       </div>
     </Teleport>
@@ -68,6 +91,7 @@
 
 <script setup>
 import { ref, computed, onMounted, onBeforeUnmount, nextTick } from 'vue'
+import { filterOptions } from '@/lib/filterOptions.mjs'
 
 // ── 省市数据 ──────────────────────────────────────────────
 const provinceGroups = [
@@ -140,15 +164,19 @@ const cityMap = {
 }
 
 // ── state ────────────────────────────────────────────────
-const selectedProv = ref('')
-const selectedCity = ref('')
+const selectedProv = defineModel('province', { default: '' })
+const selectedCity = defineModel('city', { default: '' })
 const provOpen = ref(false)
 const cityOpen = ref(false)
+const provQuery = ref('')
+const cityQuery = ref('')
 
 const provBtnRef = ref(null)
 const cityBtnRef = ref(null)
 const provPanelRef = ref(null)
 const cityPanelRef = ref(null)
+const provSearchRef = ref(null)
+const citySearchRef = ref(null)
 
 const provStyle = ref({})
 const cityStyle = ref({})
@@ -158,6 +186,10 @@ const emit = defineEmits(['change'])
 
 // ── computed ──────────────────────────────────────────────
 const currentCities = computed(() => cityMap[selectedProv.value] || [])
+const filteredProvinceGroups = computed(() => provinceGroups
+  .map(group => ({ ...group, items: filterOptions(group.items, provQuery.value) }))
+  .filter(group => group.items.length))
+const filteredCities = computed(() => filterOptions(['全部城市', ...currentCities.value], cityQuery.value))
 
 // ── panel positioning ─────────────────────────────────────
 function calcStyle(btnRef) {
@@ -179,6 +211,7 @@ async function toggleProv() {
   if (provOpen.value) {
     await nextTick()
     provStyle.value = calcStyle(provBtnRef)
+    provSearchRef.value?.focus()
   }
 }
 
@@ -189,6 +222,7 @@ async function toggleCity() {
   if (cityOpen.value) {
     await nextTick()
     cityStyle.value = calcStyle(cityBtnRef)
+    citySearchRef.value?.focus()
   }
 }
 
@@ -202,21 +236,29 @@ function selectProv(prov) {
     selectedCity.value = ''
   }
   provOpen.value = false
+  provQuery.value = ''
   emit('change', { province: selectedProv.value, city: selectedCity.value })
 }
 
 function selectCity(city) {
-  selectedCity.value = city
+  selectedCity.value = city === '全部城市' ? '' : city
   cityOpen.value = false
+  cityQuery.value = ''
   emit('change', { province: selectedProv.value, city: selectedCity.value })
+}
+
+function closePanels() {
+  provOpen.value = false
+  cityOpen.value = false
+  provQuery.value = ''
+  cityQuery.value = ''
 }
 
 // ── click outside ─────────────────────────────────────────
 function onClickOutside(e) {
   const els = [provBtnRef, cityBtnRef, provPanelRef, cityPanelRef]
   if (els.every(r => !r.value?.contains(e.target))) {
-    provOpen.value = false
-    cityOpen.value = false
+    closePanels()
   }
 }
 
@@ -259,9 +301,9 @@ onBeforeUnmount(() => document.removeEventListener('mousedown', onClickOutside))
   color: #9b2335;
 }
 
-.rs-btn.disabled {
+.rs-btn:disabled {
   opacity: 0.4;
-  pointer-events: none;
+  cursor: not-allowed;
 }
 
 .chev {
@@ -302,6 +344,32 @@ onBeforeUnmount(() => document.removeEventListener('mousedown', onClickOutside))
   scrollbar-color: #e0ddd9 transparent;
 }
 
+:global(.rs-search) {
+  display: flex;
+  align-items: center;
+  gap: 7px;
+  padding: 8px 10px;
+  border-bottom: 1px solid rgba(28, 26, 24, 0.08);
+  color: #8c8880;
+}
+
+:global(.rs-search input) {
+  width: 100%;
+  min-width: 110px;
+  border: 0;
+  outline: 0;
+  background: transparent;
+  color: #1c1a18;
+  font: inherit;
+}
+
+:global(.rs-empty) {
+  padding: 16px 13px;
+  color: #8c8880;
+  font-size: 12px;
+  text-align: center;
+}
+
 :global(.rs-scroll::-webkit-scrollbar) {
   width: 3px;
 }
@@ -325,7 +393,13 @@ onBeforeUnmount(() => document.removeEventListener('mousedown', onClickOutside))
 }
 
 :global(.rs-item) {
+  display: block;
+  width: 100%;
   padding: 8px 13px;
+  border: 0;
+  background: transparent;
+  text-align: left;
+  font-family: inherit;
   font-size: 13px;
   cursor: pointer;
   color: #504d48;

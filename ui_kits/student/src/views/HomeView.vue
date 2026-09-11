@@ -39,16 +39,7 @@
           <div class="frow">
             <div class="fcell fcell-loc">
               <span class="flabel">地区</span>
-              <div class="location-pair">
-                <select class="filter-select" style="min-width:90px" v-model="provinceF" @change="changeProvince">
-                  <option value="">全部省份</option>
-                  <option v-for="p in Object.keys(provinces)" :key="p" :value="p">{{ p }}</option>
-                </select>
-                <select class="filter-select" v-model="cityF" :disabled="!provinceF" @change="fetchJobs">
-                  <option value="">{{ provinceF ? '全部城市' : '请先选省份' }}</option>
-                  <option v-for="c in (provinces[provinceF] || [])" :key="c">{{ c }}</option>
-                </select>
-              </div>
+              <RegionSelect v-model:province="provinceF" v-model:city="cityF" @change="fetchJobs" />
             </div>
 
             <div class="fcell-div" />
@@ -185,7 +176,17 @@
 
         <!-- 分页 -->
         <div v-if="!loading && !displayJobError && jobs.length" class="pagination">
-          <button v-for="n in totalPages" :key="n" :class="['page-btn', n===page&&'active']" @click="goPage(n)">{{ n }}</button>
+          <button class="page-btn" :disabled="page === 1" aria-label="上一页" @click="goPage(page - 1)">
+            <i class="ti ti-chevron-left" />
+          </button>
+          <template v-for="item in paginationItems" :key="item">
+            <span v-if="typeof item === 'string'" class="page-ellipsis">…</span>
+            <button v-else :class="['page-btn', item === page && 'active']"
+              :aria-current="item === page ? 'page' : undefined" @click="goPage(item)">{{ item }}</button>
+          </template>
+          <button class="page-btn" :disabled="page === totalPages" aria-label="下一页" @click="goPage(page + 1)">
+            <i class="ti ti-chevron-right" />
+          </button>
         </div>
 
       </div>
@@ -197,7 +198,9 @@
 import { ref, computed, onMounted } from 'vue'
 import { useRouter } from 'vue-router'
 import UserNavbar from '@/components/UserNavbar.vue'
+import RegionSelect from '@/components/RegionSelect.vue'
 import { apiJson } from '@/lib/api'
+import { compactPages } from '@/lib/pagination.mjs'
 
 const router = useRouter()
 const allowMockFallback = import.meta.env.DEV && import.meta.env.VITE_DISABLE_JOB_MOCK !== '1'
@@ -216,11 +219,6 @@ const cityF     = ref('')
 const jobtypeF  = ref('')
 const recruitF  = ref('')
 
-function changeProvince() {
-  cityF.value = ''
-  fetchJobs()
-}
-
 // ── 二级筛选（仅大实习/小实习） ──
 const durationF = ref('')
 const daysF     = ref('')
@@ -230,45 +228,19 @@ const modeF     = ref('')
 // 仅大实习/小实习展示二级
 const showL2 = computed(() => recruitF.value === '大实习' || recruitF.value === '小实习')
 
-const provinces = {
-  '北京':   ['北京'],
-  '上海':   ['上海'],
-  '天津':   ['天津'],
-  '重庆':   ['重庆'],
-  '广东':   ['广州','深圳','珠海','东莞','佛山','惠州','中山','汕头'],
-  '浙江':   ['杭州','宁波','温州','绍兴','金华','嘉兴'],
-  '江苏':   ['南京','苏州','无锡','常州','南通','扬州','徐州'],
-  '山东':   ['济南','青岛','烟台','潍坊','临沂'],
-  '四川':   ['成都','绵阳','德阳','宜宾'],
-  '湖北':   ['武汉','宜昌','襄阳'],
-  '湖南':   ['长沙','株洲','岳阳'],
-  '河南':   ['郑州','洛阳','开封'],
-  '河北':   ['石家庄','保定','唐山','廊坊'],
-  '陕西':   ['西安','咸阳','宝鸡'],
-  '辽宁':   ['沈阳','大连','鞍山'],
-  '吉林':   ['长春','吉林市'],
-  '黑龙江': ['哈尔滨','齐齐哈尔','大庆'],
-  '安徽':   ['合肥','芜湖','马鞍山'],
-  '福建':   ['福州','厦门','泉州','莆田'],
-  '江西':   ['南昌','赣州','九江'],
-  '山西':   ['太原','大同','运城'],
-  '云南':   ['昆明','大理','丽江'],
-  '贵州':   ['贵阳','遵义'],
-  '广西':   ['南宁','桂林','柳州'],
-  '海南':   ['海口','三亚'],
-  '甘肃':   ['兰州','天水'],
-  '内蒙古': ['呼和浩特','包头','鄂尔多斯'],
-  '新疆':   ['乌鲁木齐','喀什'],
-  '西藏':   ['拉萨'],
-  '宁夏':   ['银川'],
-  '青海':   ['西宁'],
-  '香港':   ['香港'],
-  '澳门':   ['澳门'],
-  '台湾':   ['台北','高雄','台中','台南'],
-  '海外':   ['东京','纽约','伦敦','新加坡','首尔','巴黎','悉尼'],
-}
 const jobTypes    = ['新闻媒体','企业公司','党政机关','学术教职','其他']
 const recruitTypes = ['大实习','小实习','日常实习','应届招聘']
+
+const JOB_CATEGORY_TO_API = {
+  新闻媒体: 'MEDIA',
+  企业公司: 'ENTERPRISE',
+  党政机关: 'GOVERNMENT',
+  学术教职: 'ACADEMIC',
+  其他: 'OTHER',
+}
+const JOB_CATEGORY_LABEL = Object.fromEntries(
+  Object.entries(JOB_CATEGORY_TO_API).map(([label, value]) => [value, label])
+)
 
 const RECRUIT_TO_API = {
   大实习: 'BIG_INTERNSHIP',
@@ -348,6 +320,7 @@ const sortBy     = ref('newest')
 const loading    = ref(true)
 const displayJobError = ref('')
 const totalPages = computed(() => Math.max(1, Math.ceil(total.value / pageSize)))
+const paginationItems = computed(() => compactPages(page.value, totalPages.value))
 
 function setSort(s) { sortBy.value = s; page.value = 1; fetchJobs() }
 function goPage(n)  { page.value = n; fetchJobs() }
@@ -361,6 +334,10 @@ const RECRUIT_BADGE = {
 function recruitLabel(t) {
   const m = { BIG_INTERNSHIP:'大实习', SMALL_INTERNSHIP:'小实习', DAILY_INTERNSHIP:'日常实习', CAMPUS_RECRUITMENT:'应届招聘', CAMPUS_SCREENING:'应届招聘', OTHER:'' }
   return m[t] || ''
+}
+
+function workModeLabel(mode) {
+  return { ONLINE:'线上', OFFLINE:'线下', HYBRID:'线上线下均可' }[mode] || ''
 }
 
 const MOCK = [
@@ -384,8 +361,9 @@ async function fetchJobs() {
   try {
     const params = new URLSearchParams({ page: String(page.value), size: String(pageSize) })
     if (kw.value) params.set('keyword', kw.value)
+    if (provinceF.value) params.set('workProvince', provinceF.value)
     if (cityF.value) params.set('workCity', cityF.value)
-    else if (provinceF.value) params.set('workCity', provinceF.value)
+    if (jobtypeF.value) params.set('jobCategory', JOB_CATEGORY_TO_API[jobtypeF.value])
     if (recruitF.value && RECRUIT_TO_API[recruitF.value]) {
       params.set('recruitType', RECRUIT_TO_API[recruitF.value])
     }
@@ -401,20 +379,19 @@ async function fetchJobs() {
       title: j.positionName,
       company: j.companyName,
       city: j.workCity || '',
-      province: provinceF.value || '',
-      jobtype: jobtypeF.value || '',
+      province: j.workProvince || '',
+      jobtype: JOB_CATEGORY_LABEL[j.jobCategory] || '其他',
       recruit: recruitLabel(j.recruitType),
       duration: '',
       days: '',
       salary: j.salaryDisplay || '',
-      mode: j.workMode || '',
+      mode: workModeLabel(j.workMode),
       dl: fmtDate(j.applicationDeadline),
       pub: (j.createdAt && String(j.createdAt).slice(0, 10)) || '',
       rec: false,
       recruitBadge: RECRUIT_BADGE[recruitLabel(j.recruitType)] || '',
-      l2tags: [j.salaryDisplay, j.workMode].filter(Boolean),
+      l2tags: [j.salaryDisplay, workModeLabel(j.workMode)].filter(Boolean),
     }))
-    if (jobtypeF.value) mapped = mapped.filter((j) => !jobtypeF.value || j.jobtype === jobtypeF.value)
     if (durationF.value) mapped = mapped.filter((j) => j.duration === durationF.value)
     if (daysF.value) mapped = mapped.filter((j) => j.days === daysF.value)
     if (salaryF.value) mapped = mapped.filter((j) => j.salary === salaryF.value)
@@ -544,12 +521,6 @@ onMounted(fetchJobs)
 .pill.active { background: var(--red); color: #fff; border-color: var(--red); box-shadow: 0 1px 4px rgba(155,35,53,.25); }
 .pill-sm { padding: .2rem .65rem; font-size: .75rem; }
 
-/* Province + City */
-.location-pair { display: flex; }
-.location-pair .filter-select:first-child { border-radius: var(--r-md) 0 0 var(--r-md); border-right: none; }
-.location-pair .filter-select:last-child  { border-radius: 0 var(--r-md) var(--r-md) 0; }
-.location-pair .filter-select:last-child:disabled { opacity: .38; cursor: not-allowed; }
-
 .filter-select {
   height: 30px; padding: 0 1.6rem 0 .65rem;
   border: 1px solid var(--border-mid); border-radius: var(--r-md);
@@ -623,4 +594,6 @@ onMounted(fetchJobs)
 .job-meta span { font-size:.75rem; color:var(--ink-2); }
 .job-l2tags { display:flex; gap:.25rem; flex-wrap:wrap; margin-top:.25rem; }
 .job-dl { font-size:.7rem; color:var(--ink-3); white-space:nowrap; flex-shrink:0; }
+.page-btn:disabled { opacity:.4; cursor:not-allowed; }
+.page-ellipsis { width:20px; text-align:center; color:var(--ink-3); }
 </style>

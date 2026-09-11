@@ -44,11 +44,14 @@
 </template>
 
 <script setup>
+import { useRoute } from 'vue-router'
+
+const route = useRoute()
 const beginLogin = (target) => {
   window.location.assign(`/fudan/login?target=${target}`)
 }
 
-const loginUIS = () => beginLogin('user')
+const loginUIS = () => beginLogin(route.query.target === 'admin' ? 'admin' : 'user')
 const loginAdmin = () => beginLogin('admin')
 </script>
 

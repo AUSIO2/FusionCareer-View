@@ -1,4 +1,5 @@
 import { apiJson, apiForm } from '@/lib/api'
+import { apiId } from '@/lib/id.mjs'
 
 /** 与后端 upload.allowed-extensions 一致 */
 export const ALLOWED_UPLOAD_EXTENSIONS = ['pdf', 'jpg', 'jpeg', 'png']
@@ -95,11 +96,11 @@ export async function loadMyApplicationsPage(activeTab, page = 1, size = 50) {
 export function applyParsedToDetailForm(questions, answersJson, resumeFiles, answers, fileAnswers) {
   const readAnswers = parseAnswers(answersJson)
 
-  const byId = new Map(questions.map((q) => [q.id, q]))
+  const byId = new Map(questions.map((q) => [String(q.id), q]))
   const fileList = resumeFiles || []
 
   for (const row of readAnswers) {
-    const qid = row.questionId
+    const qid = String(row.questionId)
     const q = byId.get(qid)
     const raw = row.value
     if (!q) continue
@@ -108,7 +109,7 @@ export function applyParsedToDetailForm(questions, answersJson, resumeFiles, ans
       if (!sid) continue
       const fromList = fileList.find((f) => String(f.id) === sid)
       fileAnswers[qid] = {
-        id: Number(sid),
+        id: apiId(sid),
         name: fromList?.originalName || `文件 #${sid}`,
       }
     } else if (q.type === 'CHECKBOX') {
@@ -127,11 +128,11 @@ export function applyParsedToDetailForm(questions, answersJson, resumeFiles, ans
 export function applyParsedToProfileForm(questions, answersJson, resumeFiles, editAnswers, fileIds) {
   const readAnswers = parseAnswers(answersJson)
 
-  const byId = new Map(questions.map((q) => [q.id, q]))
+  const byId = new Map(questions.map((q) => [String(q.id), q]))
   const fileList = resumeFiles || []
 
   for (const row of readAnswers) {
-    const qid = row.questionId
+    const qid = String(row.questionId)
     const q = byId.get(qid)
     const raw = row.value
     if (!q) continue
@@ -141,7 +142,7 @@ export function applyParsedToProfileForm(questions, answersJson, resumeFiles, ed
       const fromList = fileList.find((f) => String(f.id) === sid)
       const displayName = fromList?.originalName || `文件 #${sid}`
       editAnswers[qid] = displayName
-      fileIds[qid] = Number(sid)
+      fileIds[qid] = apiId(sid)
     } else if (q.type === 'CHECKBOX') {
       const parts =
         typeof raw === 'string' ? raw.split(',').map((s) => s.trim()).filter(Boolean) : []
@@ -191,12 +192,12 @@ export function buildAnswersJson(questions, textAnswers, fileAnswersOrIds) {
     if (q.type === 'FILE_UPLOAD') {
       const fa = fileAnswersOrIds[q.id]
       const id = typeof fa === 'object' && fa != null ? fa.id : fa
-      rows.push({ questionId: q.id, value: String(id) })
+      rows.push({ questionId: apiId(q.id), value: apiId(id) })
     } else if (q.type === 'CHECKBOX') {
       const arr = textAnswers[q.id] || []
-      rows.push({ questionId: q.id, value: arr.join(',') })
+      rows.push({ questionId: apiId(q.id), value: arr.join(',') })
     } else {
-      rows.push({ questionId: q.id, value: String(textAnswers[q.id] ?? '') })
+      rows.push({ questionId: apiId(q.id), value: String(textAnswers[q.id] ?? '') })
     }
   }
   return JSON.stringify(rows)
@@ -204,7 +205,7 @@ export function buildAnswersJson(questions, textAnswers, fileAnswersOrIds) {
 
 function buildSubmitBody(jobPostId, questions, textAnswers, fileAnswersOrIds) {
   return {
-    jobPostId: Number(jobPostId),
+    jobPostId: apiId(jobPostId),
     answers: buildAnswersJson(questions, textAnswers, fileAnswersOrIds),
   }
 }

@@ -31,10 +31,68 @@
         <button :class="['sidebar-link', v==='list'&&'active']" @click="showJobs"><i class="ti ti-list" />岗位列表</button>
         <button :class="['sidebar-link', v==='create'&&'active']" @click="startCreate"><i class="ti ti-plus" />新建岗位</button>
         <button :class="['sidebar-link', v==='drafts'&&'active']" @click="showDrafts"><i class="ti ti-inbox" />草稿箱<span v-if="readDraftTotal>0" class="sidebar-badge">{{ readDraftTotal }}</span></button>
+        <button :class="['sidebar-link', v==='recycle'&&'active']" @click="showRecycleBin"><i class="ti ti-recycle" />回收站</button>
         <button :class="['sidebar-link', v==='resumes'&&'active']" @click="showResumes"><i class="ti ti-file-text" />简历管理</button>
+        <div class="sidebar-label">系统管理</div>
+        <button :class="['sidebar-link', v==='users'&&'active']" @click="showUsers"><i class="ti ti-users" />用户管理</button>
       </aside>
 
       <main class="admin-main">
+
+        <!-- ───── 用户管理 ───── -->
+        <div v-if="v==='users'">
+          <div class="page-hd">
+            <div><h1><i class="ti ti-users" />用户管理</h1></div>
+          </div>
+
+          <div style="display:flex;align-items:center;gap:.625rem;margin-bottom:1.1rem;flex-wrap:wrap">
+            <input class="form-control" style="flex:1;min-width:180px;padding:.5rem .875rem" v-model="searchUsername" placeholder="搜索用户名..." @keyup.enter="searchUsers" />
+            <select class="form-control" style="min-width:120px;padding:.5rem .875rem" v-model="searchUserRole" @change="searchUsers">
+              <option value="">全部角色</option><option value="ADMIN">管理员</option><option value="NORMAL">普通用户</option>
+            </select>
+            <button class="btn btn-secondary btn-sm" @click="searchUsers"><i class="ti ti-search" />搜索</button>
+          </div>
+
+          <div class="card" style="overflow:auto">
+            <table class="data-table">
+              <thead>
+                <tr><th>用户名</th><th>学工号</th><th>角色</th><th>状态</th><th>注册时间</th><th>操作</th></tr>
+              </thead>
+              <tbody>
+                <tr v-if="usersLoading"><td colspan="6" class="table-state">用户加载中…</td></tr>
+                <tr v-else-if="displayUserError">
+                  <td colspan="6" class="table-state" role="alert">
+                    <div>{{ displayUserError }}</div>
+                    <button class="btn btn-secondary btn-sm" @click="loadUsers">重新加载</button>
+                  </td>
+                </tr>
+                <tr v-else-if="!displayUsers.length"><td colspan="6" class="table-state">暂无用户</td></tr>
+                <tr v-for="user in displayUsers" v-else :key="user.id">
+                  <td style="font-weight:600">{{ user.username || '—' }}</td>
+                  <td style="font-family:monospace;color:var(--ink-2)">{{ user.studentId || '—' }}</td>
+                  <td><span :class="['badge', user.role==='ADMIN'?'badge-red':'badge-gray']">{{ user.role==='ADMIN'?'管理员':'普通用户' }}</span></td>
+                  <td><span :class="['badge', user.status==='NORMAL'?'badge-green':'badge-gray']">{{ user.status==='NORMAL'?'正常':'已禁用' }}</span></td>
+                  <td style="color:var(--ink-3)">{{ user.createdAt?.replace('T', ' ').slice(0, 16) || '—' }}</td>
+                  <td>
+                    <button
+                      type="button"
+                      :class="['btn', user.role==='ADMIN'?'btn-secondary':'btn-red-soft', 'btn-sm']"
+                      :disabled="updatingUserId===user.id"
+                      @click="changeRole(user)"
+                    >{{ updatingUserId===user.id ? '修改中…' : user.role==='ADMIN' ? '撤销管理员' : '设为管理员' }}</button>
+                  </td>
+                </tr>
+              </tbody>
+            </table>
+          </div>
+          <div v-if="!usersLoading && !displayUserError" class="pagination" style="margin-top:.875rem">
+            <span style="font-size:.773rem;color:var(--ink-3);margin-right:auto">共 {{ readUserTotal }} 名用户</span>
+            <button class="page-btn" :disabled="readUserPage<=1" @click="changeUserPage(readUserPage-1)"><i class="ti ti-chevron-left" /></button>
+            <span style="font-size:.773rem;color:var(--ink-3)">第 {{ readUserPage }} / {{ readUserPages }} 页</span>
+            <button class="page-btn" :disabled="readUserPage>=readUserPages" @click="changeUserPage(readUserPage+1)"><i class="ti ti-chevron-right" /></button>
+            <PageJump :current="readUserPage" :total="readUserPages" @change="changeUserPage" />
+          </div>
+        </div>
 
         <!-- ───── 岗位列表 ───── -->
         <div v-if="v==='list'">
@@ -46,7 +104,7 @@
           <div style="display:flex;align-items:center;gap:.625rem;margin-bottom:1.1rem;flex-wrap:wrap">
             <input class="form-control" style="flex:1;min-width:180px;padding:.5rem .875rem" v-model="sk" placeholder="搜索岗位名称、公司..." @keyup.enter="searchJobs" />
             <select class="form-control" style="min-width:110px;padding:.5rem .875rem" v-model="sf" @change="searchJobs">
-              <option value="">全部状态</option><option value="PUBLISHED">发布中</option><option value="OFFLINE">未发布</option><option value="EXPIRED">已截止</option>
+              <option value="">全部状态</option><option value="PUBLISHED">发布中</option><option value="RECOMMENDED">推荐中</option><option value="OFFLINE">未发布</option><option value="EXPIRED">已截止</option>
             </select>
             <button class="btn btn-secondary btn-sm" @click="searchJobs"><i class="ti ti-search" />搜索</button>
           </div>
@@ -110,6 +168,7 @@
             <button class="page-btn" :disabled="readJobPage<=1" @click="changeJobPage(readJobPage-1)"><i class="ti ti-chevron-left" /></button>
             <span style="font-size:.773rem;color:var(--ink-3)">第 {{ readJobPage }} / {{ readJobPages }} 页</span>
             <button class="page-btn" :disabled="readJobPage>=readJobPages" @click="changeJobPage(readJobPage+1)"><i class="ti ti-chevron-right" /></button>
+            <PageJump :current="readJobPage" :total="readJobPages" @change="changeJobPage" />
           </div>
         </div>
 
@@ -289,7 +348,7 @@
           <div class="card card-p" style="margin-bottom:1rem">
             <div class="form-section-title">岗位详情</div>
             <div class="grid-2">
-              <div class="form-group span-2"><label class="form-label">岗位描述 <span class="req">*</span></label>
+              <div class="form-group span-2"><label class="form-label">岗位描述</label>
                 <textarea class="form-control" style="min-height:120px" v-model="nj.jobDesc" placeholder="描述岗位职责、日常工作内容等..." />
               </div>
               <div class="form-group"><label class="form-label">专业要求</label>
@@ -455,6 +514,48 @@
               <button class="page-btn" :disabled="readDraftPage<=1" @click="changeDraftPage(readDraftPage-1)"><i class="ti ti-chevron-left" /></button>
               <span style="font-size:.773rem;color:var(--ink-3)">第 {{ readDraftPage }} / {{ readDraftPages }} 页</span>
               <button class="page-btn" :disabled="readDraftPage>=readDraftPages" @click="changeDraftPage(readDraftPage+1)"><i class="ti ti-chevron-right" /></button>
+              <PageJump :current="readDraftPage" :total="readDraftPages" @change="changeDraftPage" />
+            </div>
+          </template>
+        </div>
+
+        <!-- ───── 岗位回收站 ───── -->
+        <div v-if="v==='recycle'">
+          <div class="page-hd">
+            <div><h1><i class="ti ti-recycle" />岗位回收站</h1></div>
+          </div>
+          <div style="display:flex;align-items:center;gap:.625rem;margin-bottom:1.1rem">
+            <input class="form-control" style="flex:1;padding:.5rem .875rem" v-model="recycleKeyword" placeholder="搜索岗位名称、公司..." @keyup.enter="searchRecycleBin" />
+            <button class="btn btn-secondary btn-sm" @click="searchRecycleBin"><i class="ti ti-search" />搜索</button>
+          </div>
+          <div v-if="recycleLoading" class="card table-state">回收站加载中…</div>
+          <div v-else-if="displayRecycleError" class="card table-state" role="alert">
+            <div>{{ displayRecycleError }}</div>
+            <button class="btn btn-secondary btn-sm" @click="loadRecycleBin">重新加载</button>
+          </div>
+          <div v-else-if="!displayRecycleJobs.length" class="card table-state">回收站为空</div>
+          <template v-else>
+            <div class="card" style="overflow:auto">
+              <table class="data-table">
+                <thead><tr><th>岗位名称</th><th>公司</th><th>投递截止</th><th>回收原因</th><th>回收时间</th><th>操作</th></tr></thead>
+                <tbody>
+                  <tr v-for="job in displayRecycleJobs" :key="job.id">
+                    <td style="font-weight:500">{{ job.positionName }}</td>
+                    <td>{{ job.companyName }}</td>
+                    <td>{{ job.applicationDeadline || '—' }}</td>
+                    <td style="max-width:360px;white-space:normal;line-height:1.5">{{ job.recycleReason || '未记录原因' }}</td>
+                    <td>{{ job.recycledAt?.replace('T', ' ').slice(0, 16) || '—' }}</td>
+                    <td><button class="btn btn-secondary btn-sm" :disabled="updatingJobs" @click="restoreJob(job)"><i class="ti ti-restore" />恢复为草稿</button></td>
+                  </tr>
+                </tbody>
+              </table>
+            </div>
+            <div class="pagination" style="margin-top:.875rem">
+              <span style="font-size:.773rem;color:var(--ink-3);margin-right:auto">共 {{ readRecycleTotal }} 条</span>
+              <button class="page-btn" :disabled="readRecyclePage<=1" @click="changeRecyclePage(readRecyclePage-1)"><i class="ti ti-chevron-left" /></button>
+              <span style="font-size:.773rem;color:var(--ink-3)">第 {{ readRecyclePage }} / {{ readRecyclePages }} 页</span>
+              <button class="page-btn" :disabled="readRecyclePage>=readRecyclePages" @click="changeRecyclePage(readRecyclePage+1)"><i class="ti ti-chevron-right" /></button>
+              <PageJump :current="readRecyclePage" :total="readRecyclePages" @change="changeRecyclePage" />
             </div>
           </template>
         </div>
@@ -498,6 +599,7 @@
             <button class="page-btn" :disabled="readResumeJobPage<=1" @click="changeResumeJobPage(readResumeJobPage-1)"><i class="ti ti-chevron-left" /></button>
             <span style="font-size:.773rem;color:var(--ink-3)">第 {{ readResumeJobPage }} / {{ readResumeJobPages }} 页</span>
             <button class="page-btn" :disabled="readResumeJobPage>=readResumeJobPages" @click="changeResumeJobPage(readResumeJobPage+1)"><i class="ti ti-chevron-right" /></button>
+            <PageJump :current="readResumeJobPage" :total="readResumeJobPages" @change="changeResumeJobPage" />
           </div>
         </div>
 
@@ -678,6 +780,7 @@
             <button class="page-btn" :disabled="readAnswerPage<=1" @click="changeAnswerPage(readAnswerPage-1)"><i class="ti ti-chevron-left" /></button>
             <span style="font-size:.773rem;color:var(--ink-3)">第 {{ readAnswerPage }} / {{ readAnswerPages }} 页</span>
             <button class="page-btn" :disabled="readAnswerPage>=readAnswerPages" @click="changeAnswerPage(readAnswerPage+1)"><i class="ti ti-chevron-right" /></button>
+            <PageJump :current="readAnswerPage" :total="readAnswerPages" @change="changeAnswerPage" />
           </div>
         </div>
 
@@ -702,6 +805,7 @@
 import { ref, computed, onMounted } from 'vue'
 import { useToast } from '@/composables/useToast'
 import { apiDownloadBlob, apiJson, logoutSession } from '@/lib/api'
+import PageJump from '@/components/PageJump.vue'
 
 const toast = useToast()
 const v     = ref('list')
@@ -721,6 +825,15 @@ const rawJobText = ref('')
 const structuring = ref(false)
 const structuredJobs = ref([])
 const structureWarnings = ref([])
+const displayUsers = ref([])
+const searchUsername = ref('')
+const searchUserRole = ref('')
+const usersLoading = ref(false)
+const displayUserError = ref('')
+const updatingUserId = ref(null)
+const readUserPage = ref(1)
+const readUserTotal = ref(0)
+const readUserPages = ref(1)
 
 // 通用确认弹窗
 const show_confirm = ref(false)
@@ -729,9 +842,78 @@ const confirm_cb   = ref(null)
 function doConfirm() { confirm_cb.value?.(); show_confirm.value = false }
 function cancelConfirm() { show_confirm.value = false }
 
+async function loadUsers() {
+  usersLoading.value = true
+  displayUserError.value = ''
+  try {
+    const readParams = new URLSearchParams({
+      page:String(readUserPage.value), size:String(readPageSize),
+    })
+    if (searchUsername.value.trim()) readParams.set('username', searchUsername.value.trim())
+    if (searchUserRole.value) readParams.set('role', searchUserRole.value)
+    const readPage = await apiJson(`/admin/user/list?${readParams}`)
+    const readPages = Math.max(1, Number(readPage?.totalPages || 1))
+    if (readUserPage.value > readPages) {
+      readUserPage.value = readPages
+      return loadUsers()
+    }
+    displayUsers.value = readPage?.list || []
+    readUserTotal.value = Number(readPage?.total || 0)
+    readUserPages.value = readPages
+  } catch (readError) {
+    displayUsers.value = []
+    readUserTotal.value = 0
+    readUserPages.value = 1
+    displayUserError.value = readError?.message || '用户列表加载失败'
+  } finally {
+    usersLoading.value = false
+  }
+}
+
+function showUsers() {
+  v.value = 'users'
+  loadUsers()
+}
+
+function searchUsers() {
+  readUserPage.value = 1
+  loadUsers()
+}
+
+function changeUserPage(readPage) {
+  if (readPage < 1 || readPage > readUserPages.value || readPage === readUserPage.value) return
+  readUserPage.value = readPage
+  loadUsers()
+}
+
+function changeRole(updateUser) {
+  const updateRole = updateUser.role === 'ADMIN' ? 'NORMAL' : 'ADMIN'
+  confirm_msg.value = updateRole === 'ADMIN'
+    ? `确认将“${updateUser.username || updateUser.studentId}”设为管理员？`
+    : `确认撤销“${updateUser.username || updateUser.studentId}”的管理员权限？`
+  confirm_cb.value = () => updateUserRole(updateUser, updateRole)
+  show_confirm.value = true
+}
+
+async function updateUserRole(updateUser, updateRole) {
+  updatingUserId.value = updateUser.id
+  try {
+    const readUser = await apiJson(`/admin/user/${updateUser.id}/role?role=${updateRole}`, {
+      method:'PUT',
+    })
+    Object.assign(updateUser, readUser)
+    toast.success(updateRole === 'ADMIN' ? '已设为管理员' : '已撤销管理员权限')
+  } catch (readError) {
+    toast.error(readError?.message || '管理员权限修改失败')
+  } finally {
+    updatingUserId.value = null
+  }
+}
+
 
 const displayJobs = ref([])
 const displayDraftJobs = ref([])
+const displayRecycleJobs = ref([])
 const readPageSize = 20
 const readJobPage = ref(1)
 const readJobTotal = ref(0)
@@ -739,8 +921,14 @@ const readJobPages = ref(1)
 const readDraftPage = ref(1)
 const readDraftTotal = ref(0)
 const readDraftPages = ref(1)
-const STATUS_LABEL = { PUBLISHED:'发布中', OFFLINE:'未发布', EXPIRED:'已截止' }
-const STATUS_CLASS = { PUBLISHED:'badge-green', OFFLINE:'badge-gray', EXPIRED:'badge-amber' }
+const readRecyclePage = ref(1)
+const readRecycleTotal = ref(0)
+const readRecyclePages = ref(1)
+const recycleLoading = ref(false)
+const displayRecycleError = ref('')
+const recycleKeyword = ref('')
+const STATUS_LABEL = { PUBLISHED:'发布中', OFFLINE:'未发布', EXPIRED:'已截止', RECYCLED:'回收站' }
+const STATUS_CLASS = { PUBLISHED:'badge-green', OFFLINE:'badge-gray', EXPIRED:'badge-amber', RECYCLED:'badge-gray' }
 
 function toggleAll(c) { selected.value = c ? displayJobs.value.map(j=>j.id) : [] }
 function toggleSel(id) { selected.value.includes(id) ? selected.value = selected.value.filter(i=>i!==id) : selected.value.push(id) }
@@ -782,7 +970,10 @@ async function loadJobs() {
       page:String(readJobPage.value), size:String(readPageSize),
     })
     if (sk.value.trim()) readParams.set('keyword', sk.value.trim())
-    if (sf.value) readParams.set('status', sf.value)
+    if (sf.value === 'RECOMMENDED') {
+      readParams.set('status', 'PUBLISHED')
+      readParams.set('recommended', 'true')
+    } else if (sf.value) readParams.set('status', sf.value)
     const readPage = await apiJson(`/admin/job-post/list?${readParams}`)
     const readPages = Math.max(1, Number(readPage?.totalPages || 1))
     if (readJobPage.value > readPages) {
@@ -826,8 +1017,35 @@ async function loadDrafts() {
   }
 }
 
+async function loadRecycleBin() {
+  recycleLoading.value = true
+  displayRecycleError.value = ''
+  try {
+    const readParams = new URLSearchParams({
+      page:String(readRecyclePage.value), size:String(readPageSize), status:'RECYCLED',
+    })
+    if (recycleKeyword.value.trim()) readParams.set('keyword', recycleKeyword.value.trim())
+    const readPage = await apiJson(`/admin/job-post/list?${readParams}`)
+    const readPages = Math.max(1, Number(readPage?.totalPages || 1))
+    if (readRecyclePage.value > readPages) {
+      readRecyclePage.value = readPages
+      return loadRecycleBin()
+    }
+    displayRecycleJobs.value = (readPage?.list || []).map(mapJob)
+    readRecycleTotal.value = Number(readPage?.total || 0)
+    readRecyclePages.value = readPages
+  } catch (error) {
+    displayRecycleJobs.value = []
+    readRecycleTotal.value = 0
+    readRecyclePages.value = 1
+    displayRecycleError.value = error?.message || '回收站加载失败'
+  } finally {
+    recycleLoading.value = false
+  }
+}
+
 async function refreshJobs() {
-  await Promise.all([loadJobs(), loadDrafts()])
+  await Promise.all([loadJobs(), loadDrafts(), loadRecycleBin()])
 }
 
 function searchJobs() {
@@ -846,6 +1064,16 @@ function showDrafts() {
   loadDrafts()
 }
 
+function showRecycleBin() {
+  v.value = 'recycle'
+  loadRecycleBin()
+}
+
+function searchRecycleBin() {
+  readRecyclePage.value = 1
+  loadRecycleBin()
+}
+
 function changeJobPage(readPage) {
   if (readPage < 1 || readPage > readJobPages.value || readPage === readJobPage.value) return
   readJobPage.value = readPage
@@ -858,6 +1086,26 @@ function changeDraftPage(readPage) {
   readDraftPage.value = readPage
   draftSelected.value = []
   loadDrafts()
+}
+
+function changeRecyclePage(readPage) {
+  if (readPage < 1 || readPage > readRecyclePages.value || readPage === readRecyclePage.value) return
+  readRecyclePage.value = readPage
+  loadRecycleBin()
+}
+
+async function restoreJob(job) {
+  if (updatingJobs.value) return
+  updatingJobs.value = true
+  try {
+    await apiJson(`/admin/job-post/${job.id}/restore`, { method:'PUT' })
+    toast.success('已恢复为草稿')
+    await refreshJobs()
+  } catch (error) {
+    toast.error(error?.message || '恢复失败')
+  } finally {
+    updatingJobs.value = false
+  }
 }
 
 async function updateListedJob(job, patch, message) {
@@ -913,13 +1161,13 @@ function bulkOffline() { return bulkUpdate(job => job.status === 'PUBLISHED', { 
 function bulkDelete(ids) {
   const targets = ids ?? selected.value
   const n = targets.length
-  confirm_msg.value = `确认删除选中的 ${n} 条岗位？删除后无法找回。`
+  confirm_msg.value = `确认将选中的 ${n} 条岗位移入回收站？之后可以恢复。`
   confirm_cb.value = async () => {
     if (updatingJobs.value) return
     updatingJobs.value = true
     try {
       await Promise.all(targets.map(id => apiJson(`/admin/job-post/${id}`, { method: 'DELETE' })))
-      toast.success(`已删除 ${n} 条`)
+      toast.success(`已移入回收站 ${n} 条`)
       selected.value = []
       draftSelected.value = []
       await refreshJobs()
@@ -951,7 +1199,14 @@ const NJ_INIT = () => ({
   salaryMin: null, salaryMax: null, salaryDisplay: '',
   jobDesc: '', reqMajor: '', reqGradYear: '', reqSkills: '', reqOther: '',
   // 问卷题目（平台内投递时使用）对应 JobPostQuestionRequest[]
-  questions: [],
+  questions: [{
+    sortOrder: 1,
+    title: '个人简历',
+    questionType: 'FILE_UPLOAD',
+    options: [],
+    required: true,
+    placeholder: '',
+  }],
 })
 const isExternal = ref(false)  // 兼容旧引用，不再使用
 const deliveryMode = ref('internal')  // 'internal' | 'external'
@@ -1027,7 +1282,6 @@ async function openEdit(job) {
 function _validate() {
   if (!nj.value.positionName || !nj.value.companyName) { toast.error('请填写岗位名称和公司'); return false }
   if (!nj.value.jobCategory) { toast.error('请选择岗位大类'); return false }
-  if (!nj.value.jobDesc) { toast.error('请填写岗位描述'); return false }
   if (deliveryMode.value === 'external' && !nj.value.sourceUrl) { toast.error('请填写官网投递链接'); return false }
   if (deliveryMode.value === 'internal' && nj.value.questions.some(question => !question.title?.trim())) {
     toast.error('请补全问卷题目标题')
@@ -1143,7 +1397,7 @@ function parseAnswers(questions, answersJson) {
       .sort((a, b) => a.sortOrder - b.sortOrder)
       .map(q => ({
         ...q,
-        value: arr.find(a => a.questionId === q.id)?.value ?? null
+        value: arr.find(a => String(a.questionId) === String(q.id))?.value ?? null
       }))
   } catch { return [] }
 }
@@ -1310,6 +1564,7 @@ onMounted(() => {
   loadAdmin()
   loadJobs()
   loadDrafts()
+  loadRecycleBin()
   window.addEventListener('click', () => {
     exportMenuOpen.value = false
     exportMenuOpen2.value = false
