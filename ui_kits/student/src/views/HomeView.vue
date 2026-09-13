@@ -195,7 +195,7 @@
 </template>
 
 <script setup>
-import { ref, computed, onMounted } from 'vue'
+import { ref, computed, onMounted, onUnmounted } from 'vue'
 import { useRouter } from 'vue-router'
 import UserNavbar from '@/components/UserNavbar.vue'
 import RegionSelect from '@/components/RegionSelect.vue'
@@ -210,6 +210,24 @@ const featured = ref([])
 function slide(dir) {
   const min = -(Math.max(featured.value.length - 3, 0)) * CARD_W
   offset.value = Math.max(Math.min(offset.value - dir * CARD_W, 0), min)
+}
+
+async function fetchFeatured() {
+  try {
+    const readPage = await apiJson('/job/list?page=1&size=20&recommended=true')
+    featured.value = (readPage?.list || readPage?.records || []).map(readJob => ({
+      id: readJob.id,
+      company: readJob.companyName,
+      title: readJob.positionName,
+    }))
+  } catch {
+    featured.value = allowMockFallback
+      ? MOCK.filter(readJob => readJob.rec).map(readJob => ({
+          id: readJob.id, company: readJob.company, title: readJob.title,
+        }))
+      : []
+  }
+  offset.value = 0
 }
 
 // ── 一级筛选 ──
@@ -398,9 +416,6 @@ async function fetchJobs() {
     if (sortBy.value === 'deadline') mapped.sort((a, b) => (a.dl || '').localeCompare(b.dl || ''))
     else mapped.sort((a, b) => (b.pub || '').localeCompare(a.pub || ''))
     jobs.value = mapped
-    if (page.value === 1 && featured.value.length === 0) {
-      featured.value = jobs.value.slice(0, 6).map((j) => ({ id: j.id, company: j.company, title: j.title }))
-    }
   } catch (e) {
     if (!allowMockFallback) {
       displayJobError.value = e?.message || '加载岗位失败'
@@ -427,11 +442,14 @@ async function fetchJobs() {
       recruitBadge: RECRUIT_BADGE[j.recruit] || '',
       l2tags: [j.duration, j.days, j.salary, j.mode].filter(Boolean),
     }))
-    if (page.value === 1 && featured.value.length === 0)
-      featured.value = MOCK.filter(j => j.rec).map(j => ({ id:j.id, company:j.company, title:j.title }))
   } finally { loading.value = false }
 }
-onMounted(fetchJobs)
+onMounted(() => {
+  fetchJobs()
+  fetchFeatured()
+  window.addEventListener('focus', fetchFeatured)
+})
+onUnmounted(() => window.removeEventListener('focus', fetchFeatured))
 </script>
 
 <style scoped>
