@@ -73,7 +73,7 @@
           <div class="card user-table-card">
             <table class="data-table">
               <thead>
-                <tr><th>用户名</th><th>学工号</th><th>角色</th><th>注册时间</th><th>权限设置</th></tr>
+                <tr><th>用户名</th><th>学工号</th><th>角色</th><th class="user-created-column">注册时间</th><th class="user-actions-column">权限设置</th></tr>
               </thead>
               <tbody>
                 <tr v-if="usersLoading"><td colspan="5" class="table-state"><i class="ti ti-loader-2 user-spin" /> 用户加载中…</td></tr>
@@ -94,7 +94,7 @@
                   <td style="font-weight:600">{{ user.username || user.realName || '—' }}</td>
                   <td style="font-family:monospace;color:var(--ink-2)">{{ user.studentId || '—' }}</td>
                   <td><span :class="['badge', adminRoleClass(user.role)]">{{ adminRoleLabel(user.role) }}</span></td>
-                  <td style="color:var(--ink-3)">{{ formatDateTime(user.createdAt) }}</td>
+                  <td class="user-created-column" style="color:var(--ink-3)">{{ formatDateTime(user.createdAt) }}</td>
                   <td>
                     <div class="user-row-actions" @click.stop>
                       <button v-if="canViewAdminUserDetail(user.role)" class="btn btn-secondary btn-sm" @click="openUserDetail(user)"><i class="ti ti-eye" />查看资料</button>
@@ -1899,9 +1899,35 @@ async function exportData(readFormat) {
 .user-table-row { transition: background var(--t); }
 .user-table-row.has-detail { cursor: pointer; }
 .user-table-row.has-detail:hover td { background: var(--bg-soft); }
-.user-row-actions { display: flex; align-items: center; gap: .45rem; white-space: nowrap; }
-.role-locked { display: inline-flex; align-items: center; gap: .3rem; color: var(--ink-3); font-size: .72rem; }
-.user-role-select { width: 126px; min-height: 32px; padding: .32rem 1.6rem .32rem .55rem; font-size: .75rem; }
+.user-actions-column { min-width: 240px; }
+.user-row-actions {
+  display: grid;
+  grid-template-columns: repeat(2, 116px);
+  align-items: center;
+  justify-content: start;
+  gap: .55rem;
+  min-width: 240px;
+  white-space: nowrap;
+}
+.user-row-actions > :only-child { grid-column: 2; }
+.user-row-actions .btn,
+.user-role-select,
+.role-locked {
+  width: 116px;
+  height: 36px;
+  min-height: 36px;
+  border-radius: var(--r-md);
+  font-size: .75rem;
+}
+.user-row-actions .btn,
+.role-locked { display: inline-flex; align-items: center; justify-content: center; gap: .35rem; }
+.role-locked {
+  padding: 0 .65rem;
+  border: 1px solid var(--border);
+  background: var(--bg-soft);
+  color: var(--ink-3);
+}
+.user-role-select { padding: 0 1.8rem 0 .75rem; }
 .user-pagination { color: var(--ink-3); font-size: .773rem; }
 .user-pagination > span:first-child { margin-right: auto; }
 .table-state { padding: 2.5rem !important; text-align: center; color: var(--ink-3); }
@@ -2048,13 +2074,17 @@ async function exportData(readFormat) {
   .user-page-head { flex-direction: column; }
   .user-toolbar { grid-template-columns: 1fr; }
   .user-profile-grid, .user-resume-grid { grid-template-columns: 1fr; }
-  .user-row-actions { align-items: stretch; flex-direction: column; }
-  .user-role-select { width: 100%; }
   .create-entry-grid { grid-template-columns: 1fr; }
   .smart-entry-actions { align-items: stretch; flex-direction: column; }
   .bulk-import-actions { align-items: stretch; flex-direction: column; }
   .bulk-import-actions .btn { width: 100%; justify-content: center; }
   .smart-parse-btn { width: 100%; }
   .smart-source-input { min-height: 210px; }
+}
+
+@media (max-width: 900px) {
+  .user-created-column { display: none; }
+  .user-table-card .data-table th,
+  .user-table-card .data-table td { padding-left: .75rem; padding-right: .75rem; }
 }
 </style>
