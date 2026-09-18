@@ -73,6 +73,10 @@ export function canViewAdminUserDetail(readRole) {
   return readRole === 'NORMAL'
 }
 
+export function canChangeAdminUserRole(readRole) {
+  return readRole !== 'SUPER_ADMIN'
+}
+
 export function normalizeAdminUserPage(readPage) {
   const readList = Array.isArray(readPage?.list) ? readPage.list : []
   const readTotal = Number(readPage?.total ?? readList.length)

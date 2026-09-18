@@ -3,6 +3,7 @@ import test from 'node:test'
 import {
   adminRoleClass,
   adminRoleLabel,
+  canChangeAdminUserRole,
   canViewAdminUserDetail,
   formatAdminFileSize,
   formatAdminProfileValue,
@@ -19,6 +20,9 @@ test('labels all supported administrator roles', () => {
   assert.equal(canViewAdminUserDetail('NORMAL'), true)
   assert.equal(canViewAdminUserDetail('ADMIN'), false)
   assert.equal(canViewAdminUserDetail('SUPER_ADMIN'), false)
+  assert.equal(canChangeAdminUserRole('NORMAL'), true)
+  assert.equal(canChangeAdminUserRole('ADMIN'), true)
+  assert.equal(canChangeAdminUserRole('SUPER_ADMIN'), false)
 })
 
 test('normalizes user pages with safe pagination defaults', () => {

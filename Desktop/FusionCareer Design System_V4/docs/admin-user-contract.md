@@ -9,6 +9,8 @@
 - `GET /admin/user/list?page=1&size=20&username=&role=`：分页查询用户。
 - `PUT /admin/user/{userId}/role?role=NORMAL|ADMIN|SUPER_ADMIN`：修改角色。
 
+已有 `SUPER_ADMIN` 账号在页面中锁定，不能直接降级；后端也应拒绝对超级管理员账号的角色修改，避免系统失去最高权限账号。
+
 分页数据使用 `{ list, total, totalPages }`。列表项至少包含 `id`、`username`、`studentId`、`role`、`createdAt`。
 
 ## 用户详情

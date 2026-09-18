@@ -73,7 +73,7 @@
           <div class="card user-table-card">
             <table class="data-table">
               <thead>
-                <tr><th>用户名</th><th>学工号</th><th>角色</th><th>注册时间</th><th>操作</th></tr>
+                <tr><th>用户名</th><th>学工号</th><th>角色</th><th>注册时间</th><th>权限设置</th></tr>
               </thead>
               <tbody>
                 <tr v-if="usersLoading"><td colspan="5" class="table-state"><i class="ti ti-loader-2 user-spin" /> 用户加载中…</td></tr>
@@ -98,11 +98,11 @@
                   <td>
                     <div class="user-row-actions" @click.stop>
                       <button v-if="canViewAdminUserDetail(user.role)" class="btn btn-secondary btn-sm" @click="openUserDetail(user)"><i class="ti ti-eye" />查看资料</button>
-                      <span v-else class="admin-account-hint"><i class="ti ti-shield-lock" />管理账号无需学生资料</span>
                       <select
+                        v-if="canChangeAdminUserRole(user.role)"
                         class="form-control user-role-select"
                         :value="user.role"
-                        :disabled="updatingUserId===user.id || isCurrentAdmin(user)"
+                        :disabled="updatingUserId===user.id"
                         :title="isCurrentAdmin(user) ? '不能修改当前登录账号的角色' : '修改用户角色'"
                         @change="changeRole(user, $event.target.value, $event)"
                       >
@@ -110,6 +110,7 @@
                           {{ readRole.label }}
                         </option>
                       </select>
+                      <span v-else class="role-locked"><i class="ti ti-lock" />不可修改</span>
                     </div>
                   </td>
                 </tr>
@@ -907,6 +908,7 @@ import {
   USER_RESUME_FIELDS,
   adminRoleClass,
   adminRoleLabel,
+  canChangeAdminUserRole,
   canViewAdminUserDetail,
   formatAdminFileSize,
   formatAdminProfileValue,
@@ -1051,7 +1053,8 @@ function changeUserPage(readPage) {
 
 function changeRole(updateUser, updateRole, readEvent) {
   if (readEvent?.target) readEvent.target.value = updateUser.role
-  if (!updateRole || updateRole === updateUser.role || isCurrentAdmin(updateUser)) return
+  if (!canChangeAdminUserRole(updateUser?.role)
+      || !updateRole || updateRole === updateUser.role || isCurrentAdmin(updateUser)) return
   confirm_msg.value = `确认将“${updateUser.username || updateUser.studentId}”的权限修改为${adminRoleLabel(updateRole)}？`
   confirm_cb.value = () => updateUserRole(updateUser, updateRole)
   show_confirm.value = true
@@ -1894,7 +1897,7 @@ async function exportData(readFormat) {
 .user-table-row.has-detail { cursor: pointer; }
 .user-table-row.has-detail:hover td { background: var(--bg-soft); }
 .user-row-actions { display: flex; align-items: center; gap: .45rem; white-space: nowrap; }
-.admin-account-hint { display: inline-flex; align-items: center; gap: .3rem; color: var(--ink-3); font-size: .72rem; }
+.role-locked { display: inline-flex; align-items: center; gap: .3rem; color: var(--ink-3); font-size: .72rem; }
 .user-role-select { width: 126px; min-height: 32px; padding: .32rem 1.6rem .32rem .55rem; font-size: .75rem; }
 .user-pagination { color: var(--ink-3); font-size: .773rem; }
 .user-pagination > span:first-child { margin-right: auto; }
