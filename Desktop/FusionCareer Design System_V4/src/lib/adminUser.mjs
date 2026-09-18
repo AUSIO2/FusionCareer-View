@@ -69,6 +69,10 @@ export function adminRoleClass(readRole) {
   return ROLE_CLASSES[readRole] || ROLE_CLASSES.NORMAL
 }
 
+export function canViewAdminUserDetail(readRole) {
+  return readRole === 'NORMAL'
+}
+
 export function normalizeAdminUserPage(readPage) {
   const readList = Array.isArray(readPage?.list) ? readPage.list : []
   const readTotal = Number(readPage?.total ?? readList.length)

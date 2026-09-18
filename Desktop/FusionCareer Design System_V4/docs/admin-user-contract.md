@@ -13,6 +13,8 @@
 
 ## 用户详情
 
+以下资料和简历接口只用于 `NORMAL` 普通用户。`ADMIN` 与 `SUPER_ADMIN` 是管理账号，前端不展示学生资料、简历正文或简历文件入口。
+
 - `GET /admin/user/{userId}/profile`：查询个人资料，字段与 `/user/profile/get` 相同。
 - `GET /admin/user/{userId}/resume`：查询简历正文，字段与 `/user/resume/get` 相同。
 - `GET /admin/user/{userId}/resume/file/list`：查询简历文件，字段与 `/user/resume/file/list` 相同。

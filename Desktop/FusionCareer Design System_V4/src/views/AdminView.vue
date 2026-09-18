@@ -84,14 +84,21 @@
                   </td>
                 </tr>
                 <tr v-else-if="!displayUsers.length"><td colspan="5" class="table-state">暂无用户</td></tr>
-                <tr v-for="user in displayUsers" v-else :key="user.id" class="user-table-row" @click="openUserDetail(user)">
+                <tr
+                  v-for="user in displayUsers"
+                  v-else
+                  :key="user.id"
+                  :class="['user-table-row', canViewAdminUserDetail(user.role) && 'has-detail']"
+                  @click="canViewAdminUserDetail(user.role) && openUserDetail(user)"
+                >
                   <td style="font-weight:600">{{ user.username || user.realName || '—' }}</td>
                   <td style="font-family:monospace;color:var(--ink-2)">{{ user.studentId || '—' }}</td>
                   <td><span :class="['badge', adminRoleClass(user.role)]">{{ adminRoleLabel(user.role) }}</span></td>
                   <td style="color:var(--ink-3)">{{ formatDateTime(user.createdAt) }}</td>
                   <td>
                     <div class="user-row-actions" @click.stop>
-                      <button class="btn btn-secondary btn-sm" @click="openUserDetail(user)"><i class="ti ti-eye" />查看资料</button>
+                      <button v-if="canViewAdminUserDetail(user.role)" class="btn btn-secondary btn-sm" @click="openUserDetail(user)"><i class="ti ti-eye" />查看资料</button>
+                      <span v-else class="admin-account-hint"><i class="ti ti-shield-lock" />管理账号无需学生资料</span>
                       <select
                         class="form-control user-role-select"
                         :value="user.role"
@@ -900,6 +907,7 @@ import {
   USER_RESUME_FIELDS,
   adminRoleClass,
   adminRoleLabel,
+  canViewAdminUserDetail,
   formatAdminFileSize,
   formatAdminProfileValue,
   formatAdminUserValue,
@@ -1067,6 +1075,7 @@ async function updateUserRole(updateUser, updateRole) {
 }
 
 async function openUserDetail(readTarget) {
+  if (!canViewAdminUserDetail(readTarget?.role)) return
   selectedUser.value = readTarget
   userDetail.value = normalizeAdminUserDetail(readTarget, null, null, null)
   userDetailError.value = ''
@@ -1881,9 +1890,11 @@ async function exportData(readFormat) {
   margin-bottom: 1.1rem;
 }
 .user-table-card { overflow: auto; }
-.user-table-row { cursor: pointer; transition: background var(--t); }
-.user-table-row:hover td { background: var(--bg-soft); }
+.user-table-row { transition: background var(--t); }
+.user-table-row.has-detail { cursor: pointer; }
+.user-table-row.has-detail:hover td { background: var(--bg-soft); }
 .user-row-actions { display: flex; align-items: center; gap: .45rem; white-space: nowrap; }
+.admin-account-hint { display: inline-flex; align-items: center; gap: .3rem; color: var(--ink-3); font-size: .72rem; }
 .user-role-select { width: 126px; min-height: 32px; padding: .32rem 1.6rem .32rem .55rem; font-size: .75rem; }
 .user-pagination { color: var(--ink-3); font-size: .773rem; }
 .user-pagination > span:first-child { margin-right: auto; }
