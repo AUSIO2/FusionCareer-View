@@ -73,8 +73,8 @@ export function canViewAdminUserDetail(readRole) {
   return readRole === 'NORMAL'
 }
 
-export function canChangeAdminUserRole(readRole) {
-  return readRole !== 'SUPER_ADMIN'
+export function canChangeAdminUserRole(readRole, readIsCurrentUser = false) {
+  return !readIsCurrentUser && ADMIN_ROLE_OPTIONS.some(readOption => readOption.value === readRole)
 }
 
 export function normalizeAdminUserPage(readPage) {

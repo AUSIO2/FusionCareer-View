@@ -99,7 +99,7 @@
                     <div class="user-row-actions" @click.stop>
                       <button v-if="canViewAdminUserDetail(user.role)" class="btn btn-secondary btn-sm" @click="openUserDetail(user)"><i class="ti ti-eye" />查看资料</button>
                       <select
-                        v-if="canChangeAdminUserRole(user.role)"
+                        v-if="canChangeAdminUserRole(user.role, isCurrentAdmin(user))"
                         class="form-control user-role-select"
                         :value="user.role"
                         :disabled="updatingUserId===user.id"
@@ -110,7 +110,7 @@
                           {{ readRole.label }}
                         </option>
                       </select>
-                      <span v-else class="role-locked"><i class="ti ti-lock" />不可修改</span>
+                      <span v-else class="role-locked"><i class="ti ti-lock" />当前账号不可修改</span>
                     </div>
                   </td>
                 </tr>
@@ -1053,9 +1053,12 @@ function changeUserPage(readPage) {
 
 function changeRole(updateUser, updateRole, readEvent) {
   if (readEvent?.target) readEvent.target.value = updateUser.role
-  if (!canChangeAdminUserRole(updateUser?.role)
+  if (!canChangeAdminUserRole(updateUser?.role, isCurrentAdmin(updateUser))
       || !updateRole || updateRole === updateUser.role || isCurrentAdmin(updateUser)) return
-  confirm_msg.value = `确认将“${updateUser.username || updateUser.studentId}”的权限修改为${adminRoleLabel(updateRole)}？`
+  const readSuperAdminChange = updateUser.role === 'SUPER_ADMIN' || updateRole === 'SUPER_ADMIN'
+  confirm_msg.value = readSuperAdminChange
+    ? `此操作会改变超级管理员权限。确认将“${updateUser.username || updateUser.studentId}”修改为${adminRoleLabel(updateRole)}？`
+    : `确认将“${updateUser.username || updateUser.studentId}”的权限修改为${adminRoleLabel(updateRole)}？`
   confirm_cb.value = () => updateUserRole(updateUser, updateRole)
   show_confirm.value = true
 }
