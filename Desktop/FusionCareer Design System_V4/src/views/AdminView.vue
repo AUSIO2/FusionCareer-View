@@ -18,8 +18,8 @@
       <!-- main 区域：撑满剩余，右侧 padding 与 admin-main 对齐 -->
       <div class="navbar-main-col">
         <div class="nav-right">
-          <div class="nav-avatar">张</div>
-          <span style="font-size:.8rem;color:var(--ink-2)">张老师</span>
+          <div class="nav-avatar">{{ displayAdminInitial }}</div>
+          <span style="font-size:.8rem;color:var(--ink-2)">{{ displayAdminName }}</span>
           <a href="#/login" class="btn btn-ghost btn-sm" @click.prevent="logoutUser"><i class="ti ti-logout" /></a>
         </div>
       </div>
@@ -33,9 +33,90 @@
         <button :class="['sidebar-link', v==='create'&&'active']" @click="openCreate"><i class="ti ti-plus" />新建岗位</button>
         <button :class="['sidebar-link', v==='drafts'&&'active']" @click="v='drafts'"><i class="ti ti-inbox" />草稿箱<span v-if="draftCount>0" class="sidebar-badge">{{ draftCount }}</span></button>
         <button :class="['sidebar-link', v==='resumes'&&'active']" @click="v='resumes'"><i class="ti ti-file-text" />简历管理</button>
+        <template v-if="isSuperAdmin">
+          <div class="sidebar-label">系统管理</div>
+          <button :class="['sidebar-link', v==='users'&&'active']" @click="showUsers"><i class="ti ti-users" />用户管理</button>
+        </template>
       </aside>
 
       <main class="admin-main">
+
+        <!-- ───── 系统管理：用户管理（仅超级管理员） ───── -->
+        <div v-if="v==='users' && isSuperAdmin">
+          <div class="page-hd user-page-head">
+            <div>
+              <h1><i class="ti ti-users" />用户管理</h1>
+              <p>查看用户资料与简历，管理平台角色</p>
+            </div>
+            <button class="btn btn-primary btn-sm" :disabled="exportingUsers" @click="exportUsers">
+              <i :class="['ti', exportingUsers ? 'ti-loader-2 user-spin' : 'ti-file-spreadsheet']" />
+              {{ exportingUsers ? '正在导出…' : '导出全部资料与简历正文' }}
+            </button>
+          </div>
+
+          <div class="user-toolbar">
+            <input
+              class="form-control"
+              v-model="searchUsername"
+              placeholder="搜索用户名或学工号…"
+              @keyup.enter="searchUsers"
+            />
+            <select class="form-control" v-model="searchUserRole" @change="searchUsers">
+              <option value="">全部角色</option>
+              <option v-for="readRole in ADMIN_ROLE_OPTIONS" :key="readRole.value" :value="readRole.value">
+                {{ readRole.label }}
+              </option>
+            </select>
+            <button class="btn btn-secondary btn-sm" @click="searchUsers"><i class="ti ti-search" />搜索</button>
+          </div>
+
+          <div class="card user-table-card">
+            <table class="data-table">
+              <thead>
+                <tr><th>用户名</th><th>学工号</th><th>角色</th><th>注册时间</th><th>操作</th></tr>
+              </thead>
+              <tbody>
+                <tr v-if="usersLoading"><td colspan="5" class="table-state"><i class="ti ti-loader-2 user-spin" /> 用户加载中…</td></tr>
+                <tr v-else-if="displayUserError">
+                  <td colspan="5" class="table-state" role="alert">
+                    <div>{{ displayUserError }}</div>
+                    <button class="btn btn-secondary btn-sm" @click="loadUsers">重新加载</button>
+                  </td>
+                </tr>
+                <tr v-else-if="!displayUsers.length"><td colspan="5" class="table-state">暂无用户</td></tr>
+                <tr v-for="user in displayUsers" v-else :key="user.id" class="user-table-row" @click="openUserDetail(user)">
+                  <td style="font-weight:600">{{ user.username || user.realName || '—' }}</td>
+                  <td style="font-family:monospace;color:var(--ink-2)">{{ user.studentId || '—' }}</td>
+                  <td><span :class="['badge', adminRoleClass(user.role)]">{{ adminRoleLabel(user.role) }}</span></td>
+                  <td style="color:var(--ink-3)">{{ formatDateTime(user.createdAt) }}</td>
+                  <td>
+                    <div class="user-row-actions" @click.stop>
+                      <button class="btn btn-secondary btn-sm" @click="openUserDetail(user)"><i class="ti ti-eye" />查看资料</button>
+                      <select
+                        class="form-control user-role-select"
+                        :value="user.role"
+                        :disabled="updatingUserId===user.id || isCurrentAdmin(user)"
+                        :title="isCurrentAdmin(user) ? '不能修改当前登录账号的角色' : '修改用户角色'"
+                        @change="changeRole(user, $event.target.value, $event)"
+                      >
+                        <option v-for="readRole in ADMIN_ROLE_OPTIONS" :key="readRole.value" :value="readRole.value">
+                          {{ readRole.label }}
+                        </option>
+                      </select>
+                    </div>
+                  </td>
+                </tr>
+              </tbody>
+            </table>
+          </div>
+
+          <div v-if="!usersLoading && !displayUserError" class="pagination user-pagination">
+            <span>共 {{ readUserTotal }} 名用户</span>
+            <button class="page-btn" :disabled="readUserPage<=1" @click="changeUserPage(readUserPage-1)"><i class="ti ti-chevron-left" /></button>
+            <span>第 {{ readUserPage }} / {{ readUserPages }} 页</span>
+            <button class="page-btn" :disabled="readUserPage>=readUserPages" @click="changeUserPage(readUserPage+1)"><i class="ti ti-chevron-right" /></button>
+          </div>
+        </div>
 
         <!-- ───── 岗位列表 ───── -->
         <div v-if="v==='list'">
@@ -726,6 +807,73 @@
       </main>
     </div>
 
+    <!-- ── 用户资料与简历详情 ── -->
+    <Transition name="fade">
+      <div v-if="showUserDetail" class="modal-mask" @click.self="closeUserDetail">
+        <div class="user-detail-modal">
+          <div class="user-detail-head">
+            <div>
+              <div class="user-detail-title">
+                <i class="ti ti-user-search" />{{ selectedUser?.username || selectedUser?.realName || '用户详情' }}
+              </div>
+              <div class="user-detail-sub">
+                {{ selectedUser?.studentId || '暂无学工号' }}
+                <span :class="['badge', adminRoleClass(selectedUser?.role)]">{{ adminRoleLabel(selectedUser?.role) }}</span>
+              </div>
+            </div>
+            <button class="btn btn-ghost btn-sm" @click="closeUserDetail"><i class="ti ti-x" /></button>
+          </div>
+
+          <div class="user-detail-body">
+            <div v-if="userDetailLoading" class="user-detail-state"><i class="ti ti-loader-2 user-spin" />正在加载用户资料…</div>
+            <div v-else-if="userDetailError" class="user-detail-state" role="alert">
+              <div>{{ userDetailError }}</div>
+              <button class="btn btn-secondary btn-sm" @click="loadUserDetail">重新加载</button>
+            </div>
+            <template v-else>
+              <section class="user-detail-section">
+                <h2><i class="ti ti-id" />用户资料</h2>
+                <div class="user-profile-grid">
+                  <div v-for="readField in USER_PROFILE_FIELDS" :key="readField.key" class="user-profile-item">
+                    <span>{{ readField.label }}</span>
+                    <strong>{{ formatAdminProfileValue(readField.key, userDetail.profile?.[readField.key]) }}</strong>
+                  </div>
+                </div>
+              </section>
+
+              <section class="user-detail-section">
+                <h2><i class="ti ti-notes" />简历正文</h2>
+                <div class="user-resume-grid">
+                  <div v-for="readField in USER_RESUME_FIELDS" :key="readField.key" class="user-resume-item">
+                    <span>{{ readField.label }}</span>
+                    <p>{{ formatAdminUserValue(userDetail.resume?.[readField.key]) }}</p>
+                  </div>
+                </div>
+              </section>
+
+              <section class="user-detail-section">
+                <h2><i class="ti ti-files" />简历文件</h2>
+                <div v-if="!userDetail.files.length" class="user-files-empty">该用户尚未上传简历文件</div>
+                <div v-else class="user-files-list">
+                  <div v-for="readFile in userDetail.files" :key="readFile.id" class="user-file-row">
+                    <div class="user-file-icon"><i :class="['ti', readFile.mimeType==='application/pdf' ? 'ti-file-type-pdf' : 'ti-file']" /></div>
+                    <div class="user-file-copy">
+                      <strong>{{ readFile.originalName || readFile.fileName || '简历文件' }}</strong>
+                      <span>{{ formatAdminFileSize(readFile.fileSize) }}<template v-if="readFile.createdAt"> · {{ formatDateTime(readFile.createdAt) }}</template></span>
+                    </div>
+                    <button class="btn btn-secondary btn-sm" :disabled="downloadingFileId===readFile.id" @click="downloadUserResume(readFile)">
+                      <i :class="['ti', downloadingFileId===readFile.id ? 'ti-loader-2 user-spin' : 'ti-download']" />
+                      {{ downloadingFileId===readFile.id ? '下载中…' : '下载' }}
+                    </button>
+                  </div>
+                </div>
+              </section>
+            </template>
+          </div>
+        </div>
+      </div>
+    </Transition>
+
     <!-- ── 确认弹窗 ── -->
     <div v-if="show_confirm" class="modal-mask" @click.self="cancelConfirm">
       <div class="modal-box">
@@ -744,8 +892,20 @@
 import { ref, computed, onMounted, nextTick } from 'vue'
 import AppToast from '@/components/AppToast.vue'
 import { useToast } from '@/composables/useToast'
-import { logoutUser } from '@/lib/auth'
+import { logoutUser, readUser } from '@/lib/auth'
 import { downloadFile as downloadBlob, readJson, uploadForm } from '@/lib/api'
+import {
+  ADMIN_ROLE_OPTIONS,
+  USER_PROFILE_FIELDS,
+  USER_RESUME_FIELDS,
+  adminRoleClass,
+  adminRoleLabel,
+  formatAdminFileSize,
+  formatAdminProfileValue,
+  formatAdminUserValue,
+  normalizeAdminUserDetail,
+  normalizeAdminUserPage,
+} from '@/lib/adminUser.mjs'
 import {
   JOB_IMPORT_ENDPOINT,
   JOB_IMPORT_TEMPLATE_PATH,
@@ -765,6 +925,214 @@ const bulkImporting = ref(false)
 const bulkDragActive = ref(false)
 const bulkImportResult = ref(null)
 const JOB_IMPORT_TEMPLATE_URL = `${import.meta.env.BASE_URL}${JOB_IMPORT_TEMPLATE_PATH}`
+
+// ── 管理员身份与系统管理 ──
+const displayAdminName = ref('管理员')
+const displayAdminInitial = computed(() => displayAdminName.value.trim().charAt(0) || '管')
+const adminRole = ref('')
+const currentAdmin = ref(null)
+const isSuperAdmin = computed(() => adminRole.value === 'SUPER_ADMIN')
+
+const displayUsers = ref([])
+const searchUsername = ref('')
+const searchUserRole = ref('')
+const usersLoading = ref(false)
+const displayUserError = ref('')
+const updatingUserId = ref(null)
+const exportingUsers = ref(false)
+const readUserPage = ref(1)
+const readUserTotal = ref(0)
+const readUserPages = ref(1)
+const readUserPageSize = 20
+
+const showUserDetail = ref(false)
+const selectedUser = ref(null)
+const userDetailLoading = ref(false)
+const userDetailError = ref('')
+const userDetail = ref(normalizeAdminUserDetail(null, null, null, null))
+const downloadingFileId = ref(null)
+
+function formatDateTime(readValue) {
+  if (!readValue) return '—'
+  return String(readValue).replace('T', ' ').slice(0, 16)
+}
+
+function saveDownloadedBlob(readBlob, readName) {
+  const readUrl = URL.createObjectURL(readBlob)
+  const createLink = document.createElement('a')
+  createLink.href = readUrl
+  createLink.download = readName
+  document.body.appendChild(createLink)
+  createLink.click()
+  createLink.remove()
+  URL.revokeObjectURL(readUrl)
+}
+
+async function loadAdmin() {
+  try {
+    const readCurrentUser = await readUser(true)
+    currentAdmin.value = readCurrentUser || null
+    adminRole.value = readCurrentUser?.role || ''
+    displayAdminName.value = readCurrentUser?.username || readCurrentUser?.studentId || '管理员'
+  } catch {
+    currentAdmin.value = null
+    adminRole.value = ''
+    displayAdminName.value = '管理员'
+    return
+  }
+  try {
+    const readProfile = await readJson('/user/profile/get')
+    displayAdminName.value = readProfile?.realName || displayAdminName.value
+  } catch { /* 个人资料失败不能影响超级管理员权限判断 */ }
+}
+
+function isCurrentAdmin(readTarget) {
+  if (!readTarget || !currentAdmin.value) return false
+  if (readTarget.id != null && currentAdmin.value.id != null) {
+    return String(readTarget.id) === String(currentAdmin.value.id)
+  }
+  return !!readTarget.studentId
+    && String(readTarget.studentId) === String(currentAdmin.value.studentId || '')
+}
+
+function showUsers() {
+  if (!isSuperAdmin.value) return
+  v.value = 'users'
+  loadUsers()
+}
+
+async function loadUsers() {
+  if (!isSuperAdmin.value) return
+  usersLoading.value = true
+  displayUserError.value = ''
+  try {
+    const readParams = new URLSearchParams({
+      page: String(readUserPage.value),
+      size: String(readUserPageSize),
+    })
+    if (searchUsername.value.trim()) readParams.set('username', searchUsername.value.trim())
+    if (searchUserRole.value) readParams.set('role', searchUserRole.value)
+    const readPage = normalizeAdminUserPage(await readJson(`/admin/user/list?${readParams}`))
+    if (readUserPage.value > readPage.totalPages) {
+      readUserPage.value = readPage.totalPages
+      return loadUsers()
+    }
+    displayUsers.value = readPage.list
+    readUserTotal.value = readPage.total
+    readUserPages.value = readPage.totalPages
+  } catch (readError) {
+    displayUsers.value = []
+    readUserTotal.value = 0
+    readUserPages.value = 1
+    displayUserError.value = readError?.message || '用户列表加载失败'
+  } finally {
+    usersLoading.value = false
+  }
+}
+
+function searchUsers() {
+  readUserPage.value = 1
+  loadUsers()
+}
+
+function changeUserPage(readPage) {
+  if (readPage < 1 || readPage > readUserPages.value || readPage === readUserPage.value) return
+  readUserPage.value = readPage
+  loadUsers()
+}
+
+function changeRole(updateUser, updateRole, readEvent) {
+  if (readEvent?.target) readEvent.target.value = updateUser.role
+  if (!updateRole || updateRole === updateUser.role || isCurrentAdmin(updateUser)) return
+  confirm_msg.value = `确认将“${updateUser.username || updateUser.studentId}”的权限修改为${adminRoleLabel(updateRole)}？`
+  confirm_cb.value = () => updateUserRole(updateUser, updateRole)
+  show_confirm.value = true
+}
+
+async function updateUserRole(updateUser, updateRole) {
+  updatingUserId.value = updateUser.id
+  try {
+    const readUserValue = await readJson(
+      `/admin/user/${encodeURIComponent(updateUser.id)}/role?role=${encodeURIComponent(updateRole)}`,
+      { method: 'PUT' },
+    )
+    Object.assign(updateUser, readUserValue || {}, { role: readUserValue?.role || updateRole })
+    if (selectedUser.value?.id === updateUser.id) selectedUser.value = updateUser
+    toast.success(`已修改为${adminRoleLabel(updateRole)}`)
+  } catch (readError) {
+    toast.error(readError?.message || '用户权限修改失败')
+  } finally {
+    updatingUserId.value = null
+  }
+}
+
+async function openUserDetail(readTarget) {
+  selectedUser.value = readTarget
+  userDetail.value = normalizeAdminUserDetail(readTarget, null, null, null)
+  userDetailError.value = ''
+  showUserDetail.value = true
+  await loadUserDetail()
+}
+
+async function loadUserDetail() {
+  if (!selectedUser.value?.id) return
+  userDetailLoading.value = true
+  userDetailError.value = ''
+  const readId = encodeURIComponent(selectedUser.value.id)
+  const readResults = await Promise.allSettled([
+    readJson(`/admin/user/${readId}/profile`),
+    readJson(`/admin/user/${readId}/resume`),
+    readJson(`/admin/user/${readId}/resume/file/list`),
+  ])
+  const readSuccessCount = readResults.filter(readResult => readResult.status === 'fulfilled').length
+  if (!readSuccessCount) {
+    const readFailure = readResults.find(readResult => readResult.status === 'rejected')
+    userDetailError.value = readFailure?.reason?.message || '用户资料加载失败'
+  } else {
+    userDetail.value = normalizeAdminUserDetail(
+      selectedUser.value,
+      readResults[0].status === 'fulfilled' ? readResults[0].value : null,
+      readResults[1].status === 'fulfilled' ? readResults[1].value : null,
+      readResults[2].status === 'fulfilled' ? readResults[2].value : null,
+    )
+    if (readSuccessCount < readResults.length) toast.error('部分用户资料暂时无法加载')
+  }
+  userDetailLoading.value = false
+}
+
+function closeUserDetail() {
+  showUserDetail.value = false
+  selectedUser.value = null
+  userDetailError.value = ''
+}
+
+async function downloadUserResume(readFile) {
+  if (!selectedUser.value?.id || !readFile?.id) return
+  downloadingFileId.value = readFile.id
+  try {
+    const readBlob = await downloadBlob(
+      `/admin/user/${encodeURIComponent(selectedUser.value.id)}/resume/file/${encodeURIComponent(readFile.id)}/download`,
+    )
+    saveDownloadedBlob(readBlob, readFile.originalName || readFile.fileName || '简历文件')
+  } catch (readError) {
+    toast.error(readError?.message || '简历文件下载失败')
+  } finally {
+    downloadingFileId.value = null
+  }
+}
+
+async function exportUsers() {
+  exportingUsers.value = true
+  try {
+    const readBlob = await downloadBlob('/admin/user/export?format=xlsx')
+    saveDownloadedBlob(readBlob, '用户资料与简历正文.xlsx')
+    toast.success('用户资料已导出')
+  } catch (readError) {
+    toast.error(readError?.message || '用户资料导出失败')
+  } finally {
+    exportingUsers.value = false
+  }
+}
 
 // 通用确认弹窗
 const show_confirm = ref(false)
@@ -1238,6 +1606,7 @@ async function reviewAnswers(updatePassed) {
 }
 
 onMounted(() => {
+  loadAdmin()
   loadJobs()
   window.addEventListener('click', () => {
     exportMenuOpen.value = false
@@ -1502,6 +1871,66 @@ async function exportData(readFormat) {
 .jrc-count-num { font-family: 'Noto Serif SC', serif; font-weight: 700; font-size: 1.3rem; color: var(--ink); line-height: 1; }
 .jrc-count-label { font-size: .68rem; color: var(--ink-3); margin-top: .15rem; }
 
+/* ── 系统管理：用户管理 ── */
+.user-page-head { align-items: flex-start; gap: 1rem; }
+.user-toolbar {
+  display: grid;
+  grid-template-columns: minmax(220px, 1fr) 160px auto;
+  gap: .625rem;
+  align-items: center;
+  margin-bottom: 1.1rem;
+}
+.user-table-card { overflow: auto; }
+.user-table-row { cursor: pointer; transition: background var(--t); }
+.user-table-row:hover td { background: var(--bg-soft); }
+.user-row-actions { display: flex; align-items: center; gap: .45rem; white-space: nowrap; }
+.user-role-select { width: 126px; min-height: 32px; padding: .32rem 1.6rem .32rem .55rem; font-size: .75rem; }
+.user-pagination { color: var(--ink-3); font-size: .773rem; }
+.user-pagination > span:first-child { margin-right: auto; }
+.table-state { padding: 2.5rem !important; text-align: center; color: var(--ink-3); }
+.table-state .btn { margin-top: .75rem; }
+.user-spin { animation: userSpin .8s linear infinite; }
+@keyframes userSpin { to { transform: rotate(360deg); } }
+
+.user-detail-modal {
+  width: min(920px, calc(100vw - 2rem));
+  max-height: min(840px, calc(100vh - 2rem));
+  display: flex;
+  flex-direction: column;
+  overflow: hidden;
+  background: var(--bg-card);
+  border-radius: var(--r-xl);
+  box-shadow: 0 20px 60px rgba(28,26,24,.24);
+  animation: slideUp .2s ease;
+}
+.user-detail-head {
+  display: flex; align-items: flex-start; justify-content: space-between; gap: 1rem;
+  padding: 1.15rem 1.3rem;
+  border-bottom: 1px solid var(--border);
+}
+.user-detail-title { display: flex; align-items: center; gap: .45rem; font-size: 1rem; font-weight: 700; color: var(--ink); }
+.user-detail-title i { color: var(--red); }
+.user-detail-sub { display: flex; align-items: center; gap: .5rem; margin-top: .3rem; color: var(--ink-3); font-size: .76rem; }
+.user-detail-body { padding: 1.2rem 1.3rem 1.4rem; overflow: auto; }
+.user-detail-state { min-height: 240px; display: flex; flex-direction: column; align-items: center; justify-content: center; gap: .75rem; color: var(--ink-3); }
+.user-detail-section + .user-detail-section { margin-top: 1.25rem; padding-top: 1.15rem; border-top: 1px solid var(--border); }
+.user-detail-section h2 { display: flex; align-items: center; gap: .4rem; margin: 0 0 .8rem; font-size: .88rem; color: var(--ink); }
+.user-detail-section h2 i { color: var(--red); }
+.user-profile-grid { display: grid; grid-template-columns: repeat(3, minmax(0, 1fr)); gap: .6rem; }
+.user-profile-item { min-width: 0; padding: .65rem .75rem; background: var(--bg-soft); border: 1px solid var(--border); border-radius: var(--r-md); }
+.user-profile-item span, .user-resume-item span { display: block; margin-bottom: .25rem; color: var(--ink-3); font-size: .7rem; }
+.user-profile-item strong { display: block; color: var(--ink); font-size: .8rem; font-weight: 500; line-height: 1.45; overflow-wrap: anywhere; }
+.user-resume-grid { display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: .65rem; }
+.user-resume-item { min-width: 0; padding: .75rem; background: var(--bg-soft); border: 1px solid var(--border); border-radius: var(--r-md); }
+.user-resume-item p { margin: 0; min-height: 2.4em; color: var(--ink-2); font-size: .78rem; line-height: 1.6; white-space: pre-wrap; overflow-wrap: anywhere; }
+.user-files-list { display: grid; gap: .55rem; }
+.user-files-empty { padding: 1.2rem; text-align: center; color: var(--ink-3); background: var(--bg-soft); border-radius: var(--r-md); font-size: .78rem; }
+.user-file-row { display: flex; align-items: center; gap: .65rem; padding: .65rem .75rem; border: 1px solid var(--border); border-radius: var(--r-md); }
+.user-file-icon { width: 34px; height: 34px; flex-shrink: 0; display: flex; align-items: center; justify-content: center; border-radius: var(--r-sm); background: var(--red-light); color: var(--red); }
+.user-file-copy { flex: 1; min-width: 0; }
+.user-file-copy strong { display: block; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; font-size: .8rem; color: var(--ink); }
+.user-file-copy span { display: block; margin-top: .12rem; font-size: .7rem; color: var(--ink-3); }
+
 /* ── 确认弹窗 ── */
 .modal-mask {
   position: fixed; inset: 0;
@@ -1599,6 +2028,11 @@ async function exportData(readFormat) {
 }
 
 @media (max-width: 720px) {
+  .user-page-head { flex-direction: column; }
+  .user-toolbar { grid-template-columns: 1fr; }
+  .user-profile-grid, .user-resume-grid { grid-template-columns: 1fr; }
+  .user-row-actions { align-items: stretch; flex-direction: column; }
+  .user-role-select { width: 100%; }
   .create-entry-grid { grid-template-columns: 1fr; }
   .smart-entry-actions { align-items: stretch; flex-direction: column; }
   .bulk-import-actions { align-items: stretch; flex-direction: column; }
