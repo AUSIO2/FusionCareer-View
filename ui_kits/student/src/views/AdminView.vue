@@ -657,42 +657,33 @@
             </div>
             <div class="page-hd-actions">
               <button class="btn btn-secondary btn-sm" @click="showResumes"><i class="ti ti-arrow-left" />返回</button>
-              <div class="export-dropdown" :class="{open: exportMenuOpen}">
-                <button class="btn btn-primary btn-sm" @click.stop="exportMenuOpen=!exportMenuOpen">
-                  <i class="ti ti-package-export" />导出
-                  <i class="ti ti-chevron-down" style="font-size:11px;margin-left:2px" />
-                </button>
-                <div class="export-menu" @click.stop>
-                  <div class="export-menu-item" @click="exportData('csv'); exportMenuOpen=false">
-                    <i class="ti ti-table-export" />仅导出问卷数据
-                    <span>CSV（Excel 可打开）</span>
-                  </div>
-                  <div class="export-menu-item" @click="exportData('zip'); exportMenuOpen=false">
-                    <i class="ti ti-package-export" />导出问卷 + 简历
-                    <span>ZIP</span>
-                  </div>
-                </div>
-              </div>
             </div>
           </div>
+
+          <section class="resume-export-card">
+            <div class="resume-export-head">
+              <div>
+                <h2><i class="ti ti-package-export" />导出投递</h2>
+                <p>问卷数据始终包含；可附加用户资料、在线简历正文和上传的简历文件。</p>
+              </div>
+              <button class="btn btn-primary btn-sm" :disabled="exportingResumes" @click="exportData">
+                <i :class="['ti', exportingResumes ? 'ti-loader-2 export-spinner' : 'ti-download']" />
+                {{ exportingResumes ? '正在导出…' : resumeSel.length ? `导出所选 ${resumeSel.length} 份` : '导出全部投递' }}
+              </button>
+            </div>
+            <div class="resume-export-options">
+              <label v-for="readOption in RESUME_EXPORT_OPTIONS" :key="readOption.value"
+                :class="['resume-export-option', exportContent.includes(readOption.value) && 'selected']">
+                <input type="checkbox" :checked="exportContent.includes(readOption.value)" @change="toggleExportContent(readOption.value)" />
+                <i :class="['ti', readOption.icon]" />
+                <span><strong>{{ readOption.label }}</strong><small>{{ readOption.description }}</small></span>
+              </label>
+            </div>
+          </section>
 
           <!-- 批量操作条 -->
           <div v-if="resumeSel.length" style="display:flex;align-items:center;gap:.5rem;padding:.55rem .875rem;background:var(--red-light);border:1px solid var(--red-border);border-radius:var(--r-md);margin-bottom:.875rem;font-size:.8rem;color:var(--red);flex-wrap:wrap">
             已选 {{ resumeSel.length }} 份 &nbsp;·&nbsp;
-            <div class="export-dropdown" :class="{open: exportMenuOpen2}">
-              <button class="btn btn-secondary btn-sm" @click.stop="exportMenuOpen2=!exportMenuOpen2">
-                <i class="ti ti-package-export" />导出所选
-                <i class="ti ti-chevron-down" style="font-size:11px;margin-left:2px" />
-              </button>
-              <div class="export-menu" @click.stop>
-                <div class="export-menu-item" @click="exportData('csv'); exportMenuOpen2=false">
-                  <i class="ti ti-table-export" />仅导出问卷数据<span>CSV（Excel 可打开）</span>
-                </div>
-                <div class="export-menu-item" @click="exportData('zip'); exportMenuOpen2=false">
-                  <i class="ti ti-package-export" />导出问卷 + 简历<span>ZIP</span>
-                </div>
-              </div>
-            </div>
             <button class="btn btn-secondary btn-sm" @click="reviewAnswers(true)">全部待审核通过</button>
             <button class="btn btn-secondary btn-sm" @click="reviewAnswers(false)">全部待审核不通过</button>
             <button class="btn btn-secondary btn-sm" @click="resumeSel=[]">取消选择</button>
@@ -1693,8 +1684,19 @@ function toggleResumeSel(readId) {
     : resumeSel.value.push(readId)
 }
 
-const exportMenuOpen  = ref(false)
-const exportMenuOpen2 = ref(false)
+const RESUME_EXPORT_OPTIONS = [
+  { value:'profile', label:'用户资料', description:'姓名、专业与联系方式', icon:'ti-id' },
+  { value:'resume', label:'在线简历正文', description:'教育、经历与技能信息', icon:'ti-file-description' },
+  { value:'files', label:'简历文件', description:'学生上传的全部简历文件', icon:'ti-files' },
+]
+const exportContent = ref(RESUME_EXPORT_OPTIONS.map(readOption => readOption.value))
+const exportingResumes = ref(false)
+
+function toggleExportContent(readValue) {
+  exportContent.value.includes(readValue)
+    ? exportContent.value = exportContent.value.filter(readItem => readItem !== readValue)
+    : exportContent.value.push(readValue)
+}
 
 async function reviewAnswer(updateAnswer, updatePassed) {
   const updateComments = window.prompt('请输入审核意见', updatePassed ? '审核通过' : '审核未通过')
@@ -1731,16 +1733,15 @@ onMounted(() => {
   loadJobs()
   loadDrafts()
   loadRecycleBin()
-  window.addEventListener('click', () => {
-    exportMenuOpen.value = false
-    exportMenuOpen2.value = false
-  })
 })
 
-async function exportData(readFormat) {
+async function exportData() {
   if (!currentJobGroup.value) return
+  const readFormat = exportContent.value.includes('files') ? 'zip' : 'csv'
   const readParams = new URLSearchParams({ format:readFormat })
   resumeSel.value.forEach(readId => readParams.append('answerIds', readId))
+  exportContent.value.forEach(readValue => readParams.append('content', readValue))
+  exportingResumes.value = true
   try {
     const readBlob = await apiDownloadBlob(
       `/admin/questionnaire/answers/job/${currentJobGroup.value.jobId}/export?${readParams}`)
@@ -1750,9 +1751,12 @@ async function exportData(readFormat) {
     createLink.download = `applications-${currentJobGroup.value.jobId}.${readFormat}`
     createLink.click()
     URL.revokeObjectURL(readUrl)
+    toast.success(resumeSel.value.length ? `已导出所选 ${resumeSel.value.length} 份投递` : '已导出该岗位全部投递')
     resumeSel.value = []
   } catch (readError) {
     toast.error(readError?.message || '导出失败')
+  } finally {
+    exportingResumes.value = false
   }
 }
 </script>
@@ -1919,29 +1923,36 @@ async function exportData(readFormat) {
   background: #f5f5f5;
 }
 
-/* ── 导出下拉菜单 ── */
-.export-dropdown { position: relative; }
-.export-menu {
-  position: absolute; top: calc(100% + 6px); right: 0;
-  background: var(--bg-card); border: 1px solid var(--border-mid);
-  border-radius: var(--r-md); box-shadow: 0 8px 24px rgba(28,26,24,.12);
-  min-width: 180px; z-index: 50; overflow: hidden;
-  opacity: 0; transform: translateY(-6px); pointer-events: none;
-  transition: opacity .15s, transform .15s;
+/* ── 简历导出 ── */
+.resume-export-card {
+  margin-bottom: .875rem; padding: 1rem 1.1rem;
+  background: var(--bg-card); border: 1px solid var(--border);
+  border-radius: var(--r-lg); box-shadow: var(--shadow-sm);
 }
-.export-dropdown.open .export-menu { opacity: 1; transform: none; pointer-events: auto; }
-.export-menu-item {
-  display: flex; align-items: center; gap: .5rem;
-  padding: .6rem .9rem; font-size: .8rem; color: var(--ink-2);
-  cursor: pointer; transition: background var(--t);
+.resume-export-head {
+  display: flex; align-items: flex-start; justify-content: space-between;
+  gap: 1rem; margin-bottom: .875rem;
 }
-.export-menu-item:hover { background: var(--bg-soft); color: var(--ink); }
-.export-menu-item i { font-size: 14px; color: var(--ink-3); flex-shrink: 0; }
-.export-menu-item span {
-  margin-left: auto; font-size: .7rem; color: var(--ink-3);
-  background: var(--bg-sunken); padding: 1px 5px; border-radius: var(--r-sm);
+.resume-export-head h2 { margin: 0; font-size: .92rem; color: var(--ink); }
+.resume-export-head h2 i { margin-right: .35rem; color: var(--red); }
+.resume-export-head p { margin: .25rem 0 0; font-size: .74rem; color: var(--ink-3); }
+.resume-export-options { display: grid; grid-template-columns: repeat(3, minmax(0, 1fr)); gap: .625rem; }
+.resume-export-option {
+  display: grid; grid-template-columns: auto auto 1fr; align-items: center;
+  gap: .55rem; min-width: 0; padding: .75rem; cursor: pointer;
+  background: var(--bg-soft); border: 1px solid var(--border); border-radius: var(--r-md);
 }
-.export-menu-divider { height: 1px; background: var(--border); margin: 3px 0; }
+.resume-export-option.selected { background: var(--red-light); border-color: var(--red-border); }
+.resume-export-option > i { font-size: 1.2rem; color: var(--red); }
+.resume-export-option span { min-width: 0; }
+.resume-export-option strong { display: block; font-size: .8rem; color: var(--ink); }
+.resume-export-option small { display: block; margin-top: .12rem; color: var(--ink-3); font-size: .68rem; }
+.export-spinner { animation: import-spin .8s linear infinite; }
+@media (max-width: 720px) {
+  .resume-export-head { flex-direction: column; }
+  .resume-export-head .btn { width: 100%; justify-content: center; }
+  .resume-export-options { grid-template-columns: 1fr; }
+}
 
 /* ── 投递模式切换 ── */
 .mode-btn {
