@@ -211,12 +211,12 @@
             <section class="card card-p create-entry-card">
               <div class="form-section-title">批量导入岗位</div>
               <div class="bulk-import-intro">
-                <div><span>1</span>下载模板并按填写说明录入岗位</div>
-                <div><span>2</span>上传 Excel，系统解析后统一存入草稿箱</div>
+                <div><span>1</span>下载后端最新版模板并录入岗位</div>
+                <div><span>2</span>上传 Excel，校验通过后立即批量发布</div>
               </div>
-              <a class="btn btn-secondary btn-sm bulk-template-link" :href="JOB_IMPORT_TEMPLATE_URL" download="岗位批量导入模板.xlsx">
-                <i class="ti ti-download" />下载 Excel 模板
-              </a>
+              <button type="button" class="btn btn-secondary btn-sm bulk-template-link" :disabled="templateDownloading" @click="downloadJobImportTemplate">
+                <i :class="['ti', templateDownloading ? 'ti-loader-2' : 'ti-download']" />{{ templateDownloading ? '下载中…' : '下载 Excel 模板' }}
+              </button>
               <input ref="bulkImportInput" class="sr-only" type="file" accept=".xlsx,.xls" @change="handleBulkImportChange" />
               <button
                 type="button"
@@ -239,7 +239,7 @@
                 </template>
               </button>
               <div class="create-entry-actions">
-                <span class="create-entry-hint">成功导入的岗位不会直接发布。</span>
+                <span class="create-entry-hint">校验通过的岗位会立即发布，请上传前确认内容。</span>
                 <button type="button" class="btn btn-primary btn-sm" :disabled="bulkImporting || !bulkImportFile" @click="importJobWorkbook">
                   <i :class="['ti', bulkImporting ? 'ti-loader-2' : 'ti-file-import']" />{{ bulkImporting ? '正在上传并解析…' : '上传并导入' }}
                 </button>
@@ -505,29 +505,6 @@
           <div class="page-hd">
             <div><h1><i class="ti ti-inbox" />草稿箱</h1></div>
           </div>
-          <div v-if="bulkImportResult" :class="['bulk-import-result', (bulkImportResult.failedCount > 0 || bulkImportResult.warnings.length > 0) && 'has-warnings']" role="status">
-            <i :class="['ti', (bulkImportResult.failedCount > 0 || bulkImportResult.warnings.length > 0) ? 'ti-alert-circle' : 'ti-circle-check-filled']" />
-            <div style="flex:1;min-width:0">
-              <strong>{{ bulkImportResult.failedCount > 0 ? '批量导入已完成，请检查失败记录' : bulkImportResult.warnings.length > 0 ? '岗位已导入草稿箱，请复核提醒' : '岗位已批量导入草稿箱' }}</strong>
-              <div>
-                <template v-if="bulkImportResult.successCount != null">成功 {{ bulkImportResult.successCount }} 条</template>
-                <template v-else>导入请求已完成</template>
-                <template v-if="bulkImportResult.failedCount > 0">，失败 {{ bulkImportResult.failedCount }} 条</template>
-              </div>
-              <ul v-if="bulkImportResult.errors.length">
-                <li v-for="error in bulkImportResult.errors.slice(0, 5)" :key="error">{{ error }}</li>
-                <li v-if="bulkImportResult.errors.length > 5">另有 {{ bulkImportResult.errors.length - 5 }} 条错误，请修改文件后重新导入。</li>
-              </ul>
-              <div v-if="bulkImportResult.warnings.length" class="bulk-import-warnings">
-                <b>待复核 {{ bulkImportResult.warnings.length }} 条：</b>
-                <ul>
-                  <li v-for="warning in bulkImportResult.warnings.slice(0, 5)" :key="warning">{{ warning }}</li>
-                  <li v-if="bulkImportResult.warnings.length > 5">另有 {{ bulkImportResult.warnings.length - 5 }} 条提醒。</li>
-                </ul>
-              </div>
-            </div>
-            <button type="button" class="btn-icon" aria-label="关闭导入结果" @click="bulkImportResult=null"><i class="ti ti-x" /></button>
-          </div>
           <div v-if="draftsLoading" class="card table-state">草稿加载中…</div>
           <div v-else-if="displayDraftError" class="card table-state" role="alert">
             <div>{{ displayDraftError }}</div>
@@ -628,7 +605,10 @@
         <!-- ───── 简历管理：岗位列表 ───── -->
         <div v-if="v==='resumes'">
           <div class="page-hd">
-            <div><h1><i class="ti ti-file-text" />简历管理</h1></div>
+            <div>
+              <h1><i class="ti ti-file-text" />简历管理</h1>
+              <p>按岗位查看、审核和导出学生投递</p>
+            </div>
           </div>
 
           <div v-if="resumeJobsLoading" class="card table-state">岗位加载中…</div>
@@ -672,7 +652,8 @@
         <div v-if="v==='resumeDetail'">
           <div class="page-hd">
             <div>
-              <h1><i class="ti ti-clipboard-list" />{{ currentJobGroup?.title }}</h1>
+              <h1><i class="ti ti-file-text" />{{ currentJobGroup?.title }}</h1>
+              <p>{{ currentJobGroup?.company }} · 共 {{ readAnswerTotal }} 份投递</p>
             </div>
             <div class="page-hd-actions">
               <button class="btn btn-secondary btn-sm" @click="showResumes"><i class="ti ti-arrow-left" />返回</button>
@@ -735,7 +716,7 @@
                   <th>学生姓名</th>
                   <th>学号</th>
                   <th>投递时间</th>
-                  <th>问卷详情</th>
+                  <th>投递详情</th>
                   <th>操作</th>
                 </tr>
               </thead>
@@ -761,7 +742,7 @@
                     <td>
                       <button class="btn btn-ghost btn-sm" style="font-size:.78rem" @click="expandedRow=expandedRow===r.id?null:r.id">
                         <i :class="['ti', expandedRow===r.id?'ti-chevron-up':'ti-chevron-down']" />
-                        {{ expandedRow===r.id?'收起':'查看问卷' }}
+                        {{ expandedRow===r.id?'收起':'查看投递' }}
                       </button>
                     </td>
                     <td>
@@ -776,7 +757,7 @@
                   <tr v-if="expandedRow===r.id" class="detail-row">
                     <td colspan="6">
                       <div class="questionnaire-detail">
-                        <div class="qd-title"><i class="ti ti-clipboard-list" />问卷填写内容</div>
+                        <div class="qd-title"><i class="ti ti-file-description" />投递信息与简历内容</div>
                         <div style="font-size:.78rem;color:var(--ink-2);margin-bottom:.75rem">
                           状态：{{ r.statusLabel || r.submissionStatus }}
                           <template v-if="r.reviewedAt">
@@ -827,7 +808,7 @@
                             <div v-else-if="qa.questionType==='FILE_UPLOAD'" style="margin-top:.4rem">
                               <span v-if="qa.value" class="qd-file-link">
                                 <i class="ti ti-file-type-pdf" />
-                                文件 ID {{ qa.value }}（请通过 ZIP 导出）
+                                已上传附件（可通过 ZIP 导出）
                               </span>
                               <span v-else style="font-size:.78rem;color:var(--ink-3)">（未上传）</span>
                             </div>
@@ -874,7 +855,7 @@ import { useToast } from '@/composables/useToast'
 import { apiDownloadBlob, apiForm, apiJson, logoutSession } from '@/lib/api'
 import {
   JOB_IMPORT_ENDPOINT,
-  JOB_IMPORT_TEMPLATE_PATH,
+  JOB_IMPORT_TEMPLATE_ENDPOINT,
   normalizeJobImportResult,
   validateJobImportFile,
 } from '@/lib/jobImport.mjs'
@@ -907,9 +888,8 @@ const structureWarnings = ref([])
 const bulkImportInput = ref(null)
 const bulkImportFile = ref(null)
 const bulkImporting = ref(false)
+const templateDownloading = ref(false)
 const bulkDragActive = ref(false)
-const bulkImportResult = ref(null)
-const JOB_IMPORT_TEMPLATE_URL = `${import.meta.env.BASE_URL}${JOB_IMPORT_TEMPLATE_PATH}`
 const displayUsers = ref([])
 const searchUsername = ref('')
 const searchUserRole = ref('')
@@ -1061,13 +1041,15 @@ function jobPayload(job, status = job.status) {
 
 async function loadAdmin() {
   try {
-    const [readUser, readProfile] = await Promise.all([
-      apiJson('/user/me'), apiJson('/user/profile/get'),
-    ])
+    const readUser = await apiJson('/user/me')
     currentUser.value = readUser
-    displayAdminName.value = readProfile?.realName
-      || readUser?.username || readUser?.studentId || '管理员'
+    displayAdminName.value = readUser?.username || readUser?.studentId || '管理员'
+    try {
+      const readProfile = await apiJson('/user/profile/get')
+      displayAdminName.value = readProfile?.realName || displayAdminName.value
+    } catch { /* 资料失败不能影响管理员权限判断 */ }
   } catch {
+    currentUser.value = null
     displayAdminName.value = '管理员'
   }
 }
@@ -1324,6 +1306,24 @@ function handleBulkImportDrop(event) {
   selectBulkImportFile(event.dataTransfer?.files?.[0])
 }
 
+async function downloadJobImportTemplate() {
+  if (templateDownloading.value) return
+  templateDownloading.value = true
+  try {
+    const readBlob = await apiDownloadBlob(JOB_IMPORT_TEMPLATE_ENDPOINT)
+    const readUrl = URL.createObjectURL(readBlob)
+    const createLink = document.createElement('a')
+    createLink.href = readUrl
+    createLink.download = '岗位批量导入模板.xlsx'
+    createLink.click()
+    URL.revokeObjectURL(readUrl)
+  } catch (error) {
+    toast.error(error?.message || '模板下载失败')
+  } finally {
+    templateDownloading.value = false
+  }
+}
+
 async function importJobWorkbook() {
   if (!bulkImportFile.value || bulkImporting.value) return
   const readError = validateJobImportFile(bulkImportFile.value)
@@ -1333,26 +1333,17 @@ async function importJobWorkbook() {
   }
 
   bulkImporting.value = true
-  bulkImportResult.value = null
   const readForm = new FormData()
   readForm.append('file', bulkImportFile.value)
   try {
-    // 后端联调约定：multipart 字段名为 file；解析成功的岗位统一保存为 OFFLINE 草稿。
     const readResult = await apiForm(JOB_IMPORT_ENDPOINT, readForm)
-    bulkImportResult.value = normalizeJobImportResult(readResult)
+    const readImportResult = normalizeJobImportResult(readResult)
     bulkImportFile.value = null
-    readDraftPage.value = 1
-    await loadDrafts()
-    v.value = 'drafts'
-    if (bulkImportResult.value.failedCount > 0) {
-      toast.error(`导入完成，${bulkImportResult.value.failedCount} 条记录失败`)
-    } else if (bulkImportResult.value.warnings.length > 0) {
-      toast.success(`已导入草稿箱，${bulkImportResult.value.warnings.length} 条需复核`)
-    } else if (bulkImportResult.value.successCount != null) {
-      toast.success(`已导入 ${bulkImportResult.value.successCount} 条岗位到草稿箱`)
-    } else {
-      toast.success('岗位已导入草稿箱')
-    }
+    readJobPage.value = 1
+    await loadJobs()
+    v.value = 'list'
+    const readCount = readImportResult.successCount
+    toast.success(readCount == null ? '岗位已批量发布' : `已发布 ${readCount} 条岗位`)
   } catch (error) {
     toast.error(error?.message || '岗位批量导入失败，请检查模板后重试')
   } finally {
@@ -1795,17 +1786,29 @@ async function exportData(readFormat) {
 .create-entry-grid {
   display: grid;
   grid-template-columns: repeat(2, minmax(0, 1fr));
-  gap: 1rem;
+  gap: 1.125rem;
   margin-bottom: 1rem;
+  align-items: stretch;
 }
-.create-entry-card { min-width: 0; }
+.create-entry-card {
+  min-width: 0;
+  display: flex;
+  flex-direction: column;
+  border-color: var(--border-mid);
+  box-shadow: 0 1px 2px rgba(28,26,24,.035), 0 10px 28px rgba(28,26,24,.045);
+}
+.create-entry-card:hover {
+  border-color: var(--red-border);
+  box-shadow: 0 2px 4px rgba(28,26,24,.04), 0 14px 34px rgba(28,26,24,.07);
+}
 .create-entry-actions {
   display: flex;
   align-items: center;
   justify-content: space-between;
   gap: .75rem;
   flex-wrap: wrap;
-  margin-top: .875rem;
+  margin-top: auto;
+  padding-top: .875rem;
 }
 .create-entry-hint { font-size: .75rem; color: var(--ink-3); }
 .structure-warning {
@@ -1832,8 +1835,8 @@ async function exportData(readFormat) {
   align-items: center;
   justify-content: center;
   flex-shrink: 0;
-  background: var(--gold-light);
-  color: var(--gold);
+  background: var(--red-light);
+  color: var(--red);
   font-size: .68rem;
   font-weight: 700;
 }
@@ -1858,12 +1861,12 @@ async function exportData(readFormat) {
 .bulk-upload-zone:focus-visible,
 .bulk-upload-zone.dragging {
   outline: none;
-  border-color: var(--gold);
-  background: var(--gold-light);
+  border-color: var(--red);
+  background: var(--red-light);
 }
-.bulk-upload-zone.has-file { border-style: solid; border-color: var(--gold); background: var(--gold-light); }
+.bulk-upload-zone.has-file { border-style: solid; border-color: var(--red); background: var(--red-light); }
 .bulk-upload-zone:disabled { cursor: wait; opacity: .7; }
-.bulk-upload-zone > i { font-size: 1.75rem; color: var(--gold); }
+.bulk-upload-zone > i { font-size: 1.75rem; color: var(--red); }
 .bulk-upload-zone strong { font-size: .84rem; font-weight: 600; max-width: 100%; overflow-wrap: anywhere; }
 .bulk-upload-zone span { font-size: .73rem; color: var(--ink-3); }
 .bulk-upload-zone .ti-loader-2,

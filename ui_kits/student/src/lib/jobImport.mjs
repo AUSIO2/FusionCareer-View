@@ -1,5 +1,5 @@
 export const JOB_IMPORT_ENDPOINT = '/admin/job-post/import'
-export const JOB_IMPORT_TEMPLATE_PATH = 'templates/job-import-template.xlsx'
+export const JOB_IMPORT_TEMPLATE_ENDPOINT = '/admin/job-post/import-template'
 export const JOB_IMPORT_MAX_BYTES = 10 * 1024 * 1024
 
 const ALLOWED_EXTENSIONS = ['xlsx', 'xls']

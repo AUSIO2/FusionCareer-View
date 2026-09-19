@@ -1,10 +1,15 @@
 import assert from 'node:assert/strict'
 import test from 'node:test'
 import {
+  JOB_IMPORT_TEMPLATE_ENDPOINT,
   JOB_IMPORT_MAX_BYTES,
   normalizeJobImportResult,
   validateJobImportFile,
 } from '../src/lib/jobImport.mjs'
+
+test('downloads the canonical template from the backend', () => {
+  assert.equal(JOB_IMPORT_TEMPLATE_ENDPOINT, '/admin/job-post/import-template')
+})
 
 test('accepts Excel workbooks within the size limit', () => {
   assert.equal(validateJobImportFile({ name: '岗位模板.XLSX', size: 1024 }), '')
