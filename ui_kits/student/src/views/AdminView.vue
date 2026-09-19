@@ -33,24 +33,25 @@
         <button :class="['sidebar-link', v==='drafts'&&'active']" @click="showDrafts"><i class="ti ti-inbox" />草稿箱<span v-if="readDraftTotal>0" class="sidebar-badge">{{ readDraftTotal }}</span></button>
         <button :class="['sidebar-link', v==='recycle'&&'active']" @click="showRecycleBin"><i class="ti ti-recycle" />回收站</button>
         <button :class="['sidebar-link', v==='resumes'&&'active']" @click="showResumes"><i class="ti ti-file-text" />简历管理</button>
-        <div class="sidebar-label">系统管理</div>
-        <button :class="['sidebar-link', v==='users'&&'active']" @click="showUsers"><i class="ti ti-users" />用户管理</button>
+        <div v-if="isSuperAdmin" class="sidebar-label">系统管理</div>
+        <button v-if="isSuperAdmin" :class="['sidebar-link', v==='users'&&'active']" @click="showUsers"><i class="ti ti-users" />用户管理</button>
       </aside>
 
       <main class="admin-main">
 
         <!-- ───── 用户管理 ───── -->
-        <div v-if="v==='users'">
+        <div v-if="v==='users' && isSuperAdmin">
           <div class="page-hd">
             <div><h1><i class="ti ti-users" />用户管理</h1></div>
           </div>
 
           <div style="display:flex;align-items:center;gap:.625rem;margin-bottom:1.1rem;flex-wrap:wrap">
-            <input class="form-control" style="flex:1;min-width:180px;padding:.5rem .875rem" v-model="searchUsername" placeholder="搜索用户名..." @keyup.enter="searchUsers" />
+            <input class="form-control" style="flex:1;min-width:180px;padding:.5rem .875rem" v-model="searchUsername" placeholder="搜索用户名或学工号..." @keyup.enter="searchUsers" />
             <select class="form-control" style="min-width:120px;padding:.5rem .875rem" v-model="searchUserRole" @change="searchUsers">
-              <option value="">全部角色</option><option value="ADMIN">管理员</option><option value="NORMAL">普通用户</option>
+              <option value="">全部角色</option><option value="SUPERADMIN">超级管理员</option><option value="ADMIN">管理员</option><option value="NORMAL">普通用户</option>
             </select>
             <button class="btn btn-secondary btn-sm" @click="searchUsers"><i class="ti ti-search" />搜索</button>
+            <button class="btn btn-secondary btn-sm" :disabled="exportingUsers" @click="exportUsers">{{ exportingUsers ? '导出中…' : '导出用户信息' }}</button>
           </div>
 
           <div class="card" style="overflow:auto">
@@ -70,16 +71,16 @@
                 <tr v-for="user in displayUsers" v-else :key="user.id">
                   <td style="font-weight:600">{{ user.username || '—' }}</td>
                   <td style="font-family:monospace;color:var(--ink-2)">{{ user.studentId || '—' }}</td>
-                  <td><span :class="['badge', user.role==='ADMIN'?'badge-red':'badge-gray']">{{ user.role==='ADMIN'?'管理员':'普通用户' }}</span></td>
+                  <td><span :class="['badge', user.role==='NORMAL'?'badge-gray':'badge-red']">{{ roleLabel(user.role) }}</span></td>
                   <td><span :class="['badge', user.status==='NORMAL'?'badge-green':'badge-gray']">{{ user.status==='NORMAL'?'正常':'已禁用' }}</span></td>
                   <td style="color:var(--ink-3)">{{ user.createdAt?.replace('T', ' ').slice(0, 16) || '—' }}</td>
                   <td>
-                    <button
-                      type="button"
-                      :class="['btn', user.role==='ADMIN'?'btn-secondary':'btn-red-soft', 'btn-sm']"
-                      :disabled="updatingUserId===user.id"
-                      @click="changeRole(user)"
-                    >{{ updatingUserId===user.id ? '修改中…' : user.role==='ADMIN' ? '撤销管理员' : '设为管理员' }}</button>
+                    <button class="btn btn-secondary btn-sm" @click="selectedUser=user">查看资料</button>
+                    <select class="form-control" style="width:auto;display:inline-block;margin-left:.5rem" :value="user.role"
+                      :disabled="updatingUserId===user.id || String(user.id)===String(currentUser?.id)"
+                      :aria-label="`修改${user.username || user.studentId}的角色`" @change="changeRole(user, $event)">
+                      <option v-for="(label, role) in ROLE_LABELS" :key="role" :value="role">{{ label }}</option>
+                    </select>
                   </td>
                 </tr>
               </tbody>
@@ -787,6 +788,8 @@
       </main>
     </div>
 
+    <AdminUserDetails v-if="selectedUser && isSuperAdmin" :key="selectedUser.id" :user="selectedUser" @close="selectedUser=null" />
+
     <!-- ── 确认弹窗 ── -->
     <div v-if="show_confirm" class="modal-mask" @click.self="cancelConfirm">
       <div class="modal-box">
@@ -806,6 +809,8 @@ import { ref, computed, onMounted } from 'vue'
 import { useToast } from '@/composables/useToast'
 import { apiDownloadBlob, apiJson, logoutSession } from '@/lib/api'
 import PageJump from '@/components/PageJump.vue'
+import AdminUserDetails from '@/components/AdminUserDetails.vue'
+import { ROLE_LABELS, canManageSystem, roleLabel } from '@/lib/roles.mjs'
 
 const toast = useToast()
 const v     = ref('list')
@@ -813,6 +818,10 @@ const sk    = ref('')
 const sf    = ref('')
 const selected     = ref([])
 const draftSelected = ref([])
+const currentUser = ref(null)
+const isSuperAdmin = computed(() => canManageSystem(currentUser.value?.role))
+const selectedUser = ref(null)
+const exportingUsers = ref(false)
 const displayAdminName = ref('管理员')
 const displayAdminInitial = computed(() => displayAdminName.value.trim().charAt(0) || '管')
 const jobsLoading = ref(true)
@@ -843,6 +852,7 @@ function doConfirm() { confirm_cb.value?.(); show_confirm.value = false }
 function cancelConfirm() { show_confirm.value = false }
 
 async function loadUsers() {
+  if (!isSuperAdmin.value) return
   usersLoading.value = true
   displayUserError.value = ''
   try {
@@ -871,6 +881,7 @@ async function loadUsers() {
 }
 
 function showUsers() {
+  if (!isSuperAdmin.value) return
   v.value = 'users'
   loadUsers()
 }
@@ -886,11 +897,11 @@ function changeUserPage(readPage) {
   loadUsers()
 }
 
-function changeRole(updateUser) {
-  const updateRole = updateUser.role === 'ADMIN' ? 'NORMAL' : 'ADMIN'
-  confirm_msg.value = updateRole === 'ADMIN'
-    ? `确认将“${updateUser.username || updateUser.studentId}”设为管理员？`
-    : `确认撤销“${updateUser.username || updateUser.studentId}”的管理员权限？`
+function changeRole(updateUser, event) {
+  const updateRole = event.target.value
+  event.target.value = updateUser.role
+  if (!isSuperAdmin.value || updateRole === updateUser.role) return
+  confirm_msg.value = `确认将“${updateUser.username || updateUser.studentId}”设为${roleLabel(updateRole)}？`
   confirm_cb.value = () => updateUserRole(updateUser, updateRole)
   show_confirm.value = true
 }
@@ -902,11 +913,33 @@ async function updateUserRole(updateUser, updateRole) {
       method:'PUT',
     })
     Object.assign(updateUser, readUser)
-    toast.success(updateRole === 'ADMIN' ? '已设为管理员' : '已撤销管理员权限')
+    toast.success(`已设为${roleLabel(updateRole)}`)
   } catch (readError) {
     toast.error(readError?.message || '管理员权限修改失败')
   } finally {
     updatingUserId.value = null
+  }
+}
+
+
+async function exportUsers() {
+  if (!isSuperAdmin.value) return
+  exportingUsers.value = true
+  try {
+    const params = new URLSearchParams()
+    if (searchUsername.value.trim()) params.set('username', searchUsername.value.trim())
+    if (searchUserRole.value) params.set('role', searchUserRole.value)
+    const blob = await apiDownloadBlob(`/admin/user/export?${params}`)
+    const url = URL.createObjectURL(blob)
+    const link = document.createElement('a')
+    link.href = url
+    link.download = '用户信息.xlsx'
+    link.click()
+    URL.revokeObjectURL(url)
+  } catch (error) {
+    toast.error(error?.message || '导出失败')
+  } finally {
+    exportingUsers.value = false
   }
 }
 
@@ -955,6 +988,7 @@ async function loadAdmin() {
     const [readUser, readProfile] = await Promise.all([
       apiJson('/user/me'), apiJson('/user/profile/get'),
     ])
+    currentUser.value = readUser
     displayAdminName.value = readProfile?.realName
       || readUser?.username || readUser?.studentId || '管理员'
   } catch {
