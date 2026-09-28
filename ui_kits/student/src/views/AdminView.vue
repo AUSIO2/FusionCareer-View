@@ -5,7 +5,7 @@
       <!-- sidebar 区域：宽度与 --sidebar-w 对齐，品牌居中 -->
       <div class="navbar-brand-col">
         <RouterLink class="brand" to="/admin">
-          <img class="brand-mark" src="/brand/fudan-seal.svg" alt="复旦大学校徽" width="32" height="32" />
+          <img class="brand-mark" src="/brand/fudan-seal-red.svg" alt="复旦大学校徽" width="32" height="32" />
           <div>
             <div class="brand-zh">复新生涯</div>
             <div class="brand-en">ADMIN CONSOLE</div>

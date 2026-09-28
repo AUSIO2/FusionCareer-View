@@ -31,7 +31,7 @@
       <div class="login-content">
         <div class="login-heading">
           <div class="heading-identity">
-            <img class="card-seal" src="/brand/fudan-seal.svg" alt="" aria-hidden="true" width="42" height="42" />
+            <img class="card-seal" src="/brand/fudan-seal-red.svg" alt="" aria-hidden="true" width="42" height="42" />
             <h2 id="entry-title">登录</h2>
           </div>
           <GinkgoArtwork :breeze-trigger="breezeTrigger" />
@@ -303,7 +303,7 @@ onUnmounted(() => window.removeEventListener('pageshow', restoreLoginButton))
 }
 .heading-identity { position: relative; z-index: 1; display: flex; align-items: center; gap: 15px; }
 .login-heading h2 { margin: 0; font-family: inherit; font-size: 30px; font-weight: 500; line-height: 1.3; }
-.card-seal { display: block; flex-shrink: 0; filter: grayscale(1) sepia(.7); opacity: .72; }
+.card-seal { display: block; flex-shrink: 0; opacity: .85; }
 .ginkgo-drawing { position: absolute; right: -4px; bottom: -24px; width: 205px; height: 162px; pointer-events: none; }
 .login-form { padding: 32px 34px 28px; }
 .login-targets {
