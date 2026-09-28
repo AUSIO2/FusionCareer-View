@@ -5,7 +5,7 @@
     fill="none"
     aria-hidden="true"
   >
-    <g class="ginkgo-leaf leaf-large">
+    <g ref="largeLeaf" class="ginkgo-leaf leaf-large">
       <path class="leaf-stem" d="M181 119C179 138 184 160 177 181" />
       <path
         class="leaf-shape"
@@ -17,7 +17,7 @@
       </g>
     </g>
 
-    <g class="ginkgo-leaf leaf-small">
+    <g ref="smallLeaf" class="ginkgo-leaf leaf-small">
       <path class="leaf-stem" d="M92 138C98 156 111 170 115 184" />
       <path
         class="leaf-shape"
@@ -30,6 +30,52 @@
     </g>
   </svg>
 </template>
+
+<script setup>
+import { onMounted, onUnmounted, ref, watch } from 'vue'
+
+const props = defineProps({ breezeTrigger: { type: Number, default: 0 } })
+const smallLeaf = ref(null)
+const largeLeaf = ref(null)
+let motionPreference
+let animations = []
+
+function stopBreeze() {
+  animations.forEach(animation => animation.cancel())
+  animations = []
+}
+
+function playBreeze() {
+  if (!motionPreference || motionPreference.matches) return
+  const leaves = [smallLeaf.value, largeLeaf.value]
+  if (leaves.some(leaf => !leaf)) return
+
+  // Start a repeated click from the current pose instead of snapping back.
+  const poses = leaves.map(leaf => getComputedStyle(leaf).transform)
+  stopBreeze()
+  const angles = [[-12, -1, -7.5, -6], [-4, 5, 1, 2]]
+  const offsets = [0, .26, .56, .8, 1]
+  animations = leaves.map((leaf, index) => leaf.animate(
+    [poses[index], ...angles[index].map(angle => `rotate(${angle}deg)`)]
+      .map((transform, frame) => ({ transform, offset: offsets[frame], easing: 'ease-in-out' })),
+    { duration: index === 0 ? 1100 : 1250 },
+  ))
+}
+
+function syncMotionPreference() {
+  if (motionPreference.matches) stopBreeze()
+}
+
+watch(() => props.breezeTrigger, playBreeze, { flush: 'post' })
+onMounted(() => {
+  motionPreference = window.matchMedia('(prefers-reduced-motion: reduce)')
+  motionPreference.addEventListener('change', syncMotionPreference)
+})
+onUnmounted(() => {
+  stopBreeze()
+  motionPreference?.removeEventListener('change', syncMotionPreference)
+})
+</script>
 
 <style scoped>
 .ginkgo-drawing {
@@ -46,21 +92,10 @@
 .leaf-small {
   transform-origin: 115px 184px;
   transform: rotate(-6deg);
-  animation: ginkgo-breeze-small 7.4s ease-in-out -1.1s infinite;
 }
 .leaf-large {
   transform-origin: 177px 181px;
   transform: rotate(2deg);
-  animation: ginkgo-breeze-large 9s ease-in-out -3.2s infinite;
-}
-@keyframes ginkgo-breeze-small {
-  0%, 100% { transform: rotate(-8deg); }
-  45% { transform: rotate(-2deg); }
-  75% { transform: rotate(-5deg); }
-}
-@keyframes ginkgo-breeze-large {
-  0%, 100% { transform: rotate(0deg); }
-  50% { transform: rotate(4deg); }
 }
 .leaf-shape {
   fill: var(--leaf-fill, #d2bc79);
@@ -80,8 +115,5 @@
   stroke: var(--leaf-outline, #ad985c);
   stroke-width: 1.25;
   stroke-linecap: round;
-}
-@media (prefers-reduced-motion: reduce) {
-  .ginkgo-leaf { animation: none; }
 }
 </style>

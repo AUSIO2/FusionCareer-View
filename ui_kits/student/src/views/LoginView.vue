@@ -34,7 +34,7 @@
             <img class="card-seal" src="/brand/fudan-seal.svg" alt="" aria-hidden="true" width="42" height="42" />
             <h2 id="entry-title">登录</h2>
           </div>
-          <GinkgoArtwork />
+          <GinkgoArtwork :breeze-trigger="breezeTrigger" />
         </div>
 
         <div class="login-form">
@@ -126,6 +126,7 @@ const route = useRoute()
 const router = useRouter()
 const loggingIn = ref(false)
 const helpOpen = ref(false)
+const breezeTrigger = ref(0)
 const loginError = computed(() => route.query.error || route.query.notice || '')
 const isAdminTarget = computed(() => route.query.target === 'admin')
 const errorMessages = {
@@ -144,6 +145,7 @@ function loginCurrentTarget() {
 
 function setTarget(target) {
   if (loggingIn.value) return
+  breezeTrigger.value += 1
   router.replace({ path: '/login', query: target === 'admin' ? { target: 'admin' } : {} })
 }
 
