@@ -4,6 +4,7 @@
  */
 
 import { useToast } from '@/composables/useToast'
+import { finishLogoutNavigation, openLogoutWindow } from './logout.mjs'
 
 const TOKEN_STORAGE_KEY = 'fusion-career-token'
 const LOGIN_ERROR = '登录已过期，请重新登录'
@@ -39,6 +40,8 @@ export function clearToken() {
  * 注销服务端会话（Sa-Token），再清除本地 token 并完成页面跳转。
  */
 export async function logoutSession() {
+  const readWindow = typeof window === 'undefined' ? null : window
+  const readLogoutWindow = openLogoutWindow(readWindow)
   let readUrl = ''
   try {
     const readLogout = await apiJson('/fudan/logout', { method: 'POST' })
@@ -47,8 +50,7 @@ export async function logoutSession() {
     if (readError?.code !== 401) useToast().error('服务端退出失败，已在本地退出')
   } finally {
     clearToken()
-    if (readUrl) window.location.assign(readUrl)
-    else window.location.hash = '#/login'
+    finishLogoutNavigation(readWindow, readLogoutWindow, readUrl)
   }
 }
 
