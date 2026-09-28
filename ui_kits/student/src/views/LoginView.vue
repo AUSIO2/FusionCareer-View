@@ -3,14 +3,10 @@
     <section class="campus-cover" aria-labelledby="platform-title">
       <div class="campus-photo" role="img" aria-label="复旦大学新闻学院秋景，银杏树下的小径通向教学楼" />
       <header class="cover-header">
-        <a class="college-brand" href="https://xwxy.fudan.edu.cn/" target="_blank" rel="noopener noreferrer">
+        <div class="college-brand">
           <img src="/brand/fudan-seal.svg" alt="复旦大学校徽" width="48" height="48" />
           <span>复旦大学新闻学院</span>
-        </a>
-        <a class="college-link" href="https://xwxy.fudan.edu.cn/" target="_blank" rel="noopener noreferrer">
-          学院官网
-          <svg viewBox="0 0 24 24" fill="none" aria-hidden="true"><path d="M7 17 17 7M7 7h10v10" /></svg>
-        </a>
+        </div>
       </header>
 
       <div class="cover-content">
@@ -18,99 +14,114 @@
           <p>实习 · 就业 · 职业发展</p>
           <h1 id="platform-title">复新生涯</h1>
         </div>
-        <a
+        <div
           class="college-motto"
-          href="https://xwxy.fudan.edu.cn/xygk/list.htm"
-          target="_blank"
-          rel="noopener noreferrer"
-          aria-label="好学力行，了解新闻学院院铭"
-        ><span>好学</span><span>力行</span></a>
+          aria-label="新闻学院院铭：好学力行"
+        ><span>好学</span><span>力行</span></div>
       </div>
 
-      <a class="cover-caption" href="https://xwxy.fudan.edu.cn/b6/a6/c41268a636582/page.htm" target="_blank" rel="noopener noreferrer" aria-label="新闻学院银杏时节，查看校园照片来源">
+      <p class="cover-caption">
         <span class="caption-rule" aria-hidden="true" />
-        <span>新闻学院 · 银杏时节</span>
-        <svg viewBox="0 0 24 24" fill="none" aria-hidden="true"><path d="M7 17 17 7M7 7h10v10" /></svg>
-      </a>
+        <span>校园里的一个秋日。</span>
+      </p>
     </section>
 
     <main class="login-panel" aria-labelledby="entry-title">
       <div class="login-content">
         <div class="login-heading">
-          <h2 id="entry-title">登录</h2>
-          <img class="card-seal" src="/brand/fudan-seal.svg" alt="" aria-hidden="true" width="54" height="54" />
+          <div class="heading-identity">
+            <img class="card-seal" src="/brand/fudan-seal.svg" alt="" aria-hidden="true" width="42" height="42" />
+            <h2 id="entry-title">登录</h2>
+          </div>
+          <svg class="ginkgo-drawing" viewBox="0 0 260 190" fill="none" aria-hidden="true">
+            <g class="ginkgo-stems">
+              <path d="M142 188c13-29 19-50 22-67M148 176c-18-12-30-22-43-39" />
+            </g>
+            <g class="ginkgo-small">
+              <path class="leaf-shape" d="M105 138c-23 2-50-6-63-20-9-10-11-24-4-28 6-4 12 0 16-5 5-7 11-11 17-7 7 5 11 13 15 23 5-12 11-20 18-20 7 0 9 8 14 10 6 2 12-2 15 6 6 14-9 33-28 41Z" />
+              <path class="leaf-veins" d="M105 138C76 131 52 112 42 96m63 42c-19-15-34-35-38-52m38 52c-10-12-17-26-19-37m19 37c-3-19-2-35 2-48m-2 48c10-15 18-28 21-39" />
+            </g>
+            <g class="ginkgo-large">
+              <path class="leaf-shape" d="M164 121c-24-4-56-22-70-42-10-13-10-31 0-37 8-5 13 2 19-3 6-5 8-14 18-13 13 1 22 11 32 24 11-15 22-28 35-26 9 1 12 11 18 15 7 4 13-2 20 4 11 9 7 26-4 40-19 21-48 36-68 38Z" />
+              <path class="leaf-veins" d="M164 121c-34-25-54-48-64-72m64 72c-21-31-35-57-34-86m34 86c-9-26-10-50-1-71m1 71c9-34 22-62 33-87m-33 87c26-28 44-52 51-74m-51 74c33-18 57-41 69-68" />
+            </g>
+          </svg>
         </div>
 
-        <div class="login-targets" role="group" aria-label="选择登录身份">
+        <div class="login-form">
+          <div class="login-targets" role="group" aria-label="选择登录身份">
+            <button
+              type="button"
+              :class="{ selected: !isAdminTarget }"
+              :aria-pressed="!isAdminTarget"
+              :disabled="loggingIn"
+              @click="setTarget('user')"
+            >
+              <svg viewBox="0 0 24 24" fill="none" aria-hidden="true">
+                <circle cx="12" cy="8" r="3.5" />
+                <path d="M5 20v-2a7 7 0 0 1 14 0v2" />
+              </svg>
+              <span>学生端</span>
+              <svg v-if="!isAdminTarget" class="choice-check" viewBox="0 0 16 16" fill="none" aria-hidden="true"><path d="m4 8 2.5 2.5L12 5" /></svg>
+            </button>
+            <button
+              type="button"
+              :class="{ selected: isAdminTarget }"
+              :aria-pressed="isAdminTarget"
+              :disabled="loggingIn"
+              @click="setTarget('admin')"
+            >
+              <svg viewBox="0 0 24 24" fill="none" aria-hidden="true">
+                <rect x="4" y="7" width="16" height="14" rx="2" />
+                <path d="M9 7V4h6v3M4 12h16M10 12v3h4v-3" />
+              </svg>
+              <span>管理端</span>
+              <svg v-if="isAdminTarget" class="choice-check" viewBox="0 0 16 16" fill="none" aria-hidden="true"><path d="m4 8 2.5 2.5L12 5" /></svg>
+            </button>
+          </div>
+
+          <div v-if="errorMessage" class="login-alert" role="alert">
+            <p>{{ errorMessage }}</p>
+            <button v-if="loginError === 'admin_forbidden'" type="button" @click="setTarget('user')">
+              切换到学生端 <span aria-hidden="true">→</span>
+            </button>
+          </div>
+
           <button
+            class="uis-button"
             type="button"
-            :class="{ selected: !isAdminTarget }"
-            :aria-pressed="!isAdminTarget"
             :disabled="loggingIn"
-            @click="setTarget('user')"
+            :aria-busy="loggingIn"
+            @click="loginCurrentTarget"
+          >
+            <span>{{ loggingIn ? '正在前往统一认证…' : '复旦 UIS 登录' }}</span>
+            <svg v-if="!loggingIn" viewBox="0 0 24 24" fill="none" aria-hidden="true">
+              <path d="M5 12h14m-5-5 5 5-5 5" />
+            </svg>
+            <span v-else class="login-spinner" aria-hidden="true" />
+          </button>
+
+          <button
+            class="help-toggle"
+            type="button"
+            :aria-expanded="helpOpen"
+            aria-controls="login-help"
+            @click="helpOpen = !helpOpen"
           >
             <svg viewBox="0 0 24 24" fill="none" aria-hidden="true">
-              <circle cx="12" cy="8" r="3.5" />
-              <path d="M5 20v-2a7 7 0 0 1 14 0v2" />
+              <circle cx="12" cy="12" r="9" />
+              <path d="M9.8 9a2.3 2.3 0 0 1 4.5.6c0 1.8-2.3 1.9-2.3 3.4M12 16h.01" />
             </svg>
-            <span>学生端</span>
-          </button>
-          <button
-            type="button"
-            :class="{ selected: isAdminTarget }"
-            :aria-pressed="isAdminTarget"
-            :disabled="loggingIn"
-            @click="setTarget('admin')"
-          >
-            <svg viewBox="0 0 24 24" fill="none" aria-hidden="true">
-              <rect x="4" y="7" width="16" height="14" rx="2" />
-              <path d="M9 7V4h6v3M4 12h16M10 12v3h4v-3" />
+            <span>{{ helpOpen ? '收起帮助' : '登录帮助' }}</span>
+            <svg class="help-chevron" :class="{ expanded: helpOpen }" viewBox="0 0 24 24" fill="none" aria-hidden="true">
+              <path d="m7 10 5 5 5-5" />
             </svg>
-            <span>管理端</span>
           </button>
-        </div>
 
-        <div v-if="errorMessage" class="login-alert" role="alert">
-          <p>{{ errorMessage }}</p>
-          <button v-if="loginError === 'admin_forbidden'" type="button" @click="setTarget('user')">
-            切换到学生端 <span aria-hidden="true">→</span>
-          </button>
-        </div>
-
-        <button
-          class="uis-button"
-          type="button"
-          :disabled="loggingIn"
-          :aria-busy="loggingIn"
-          @click="loginCurrentTarget"
-        >
-          <span>{{ loggingIn ? '正在前往统一认证…' : '复旦 UIS 登录' }}</span>
-          <svg v-if="!loggingIn" viewBox="0 0 24 24" fill="none" aria-hidden="true">
-            <path d="M5 12h14m-5-5 5 5-5 5" />
-          </svg>
-          <span v-else class="login-spinner" aria-hidden="true" />
-        </button>
-
-        <button
-          class="help-toggle"
-          type="button"
-          :aria-expanded="helpOpen"
-          aria-controls="login-help"
-          @click="helpOpen = !helpOpen"
-        >
-          <svg viewBox="0 0 24 24" fill="none" aria-hidden="true">
-            <circle cx="12" cy="12" r="9" />
-            <path d="M9.8 9a2.3 2.3 0 0 1 4.5.6c0 1.8-2.3 1.9-2.3 3.4M12 16h.01" />
-          </svg>
-          <span>{{ helpOpen ? '收起帮助' : '登录帮助' }}</span>
-          <svg class="help-chevron" :class="{ expanded: helpOpen }" viewBox="0 0 24 24" fill="none" aria-hidden="true">
-            <path d="m7 10 5 5 5-5" />
-          </svg>
-        </button>
-
-        <div v-show="helpOpen" id="login-help" class="login-help">
-          <p>使用复旦大学统一身份认证账号，账号和密码在学校认证页面填写。</p>
-          <p>管理端仅对已开通管理权限的账号开放；若认证未完成，可返回本页重新登录。</p>
+          <div v-show="helpOpen" id="login-help" class="login-help">
+            <p>使用复旦大学统一身份认证账号，账号和密码在学校认证页面填写。</p>
+            <p>管理端仅对已开通管理权限的账号开放；若认证未完成，可返回本页重新登录。</p>
+          </div>
         </div>
       </div>
     </main>
@@ -188,6 +199,7 @@ onUnmounted(() => window.removeEventListener('pageshow', restoreLoginButton))
   content: '';
   position: absolute;
   inset: 0;
+  /* Photo source: https://xwxy.fudan.edu.cn/b6/a6/c41268a636582/page.htm */
   background: url('/images/login-journalism-autumn.webp') center 51% / cover no-repeat;
   transform: scale(1.16);
   transform-origin: center top;
@@ -214,10 +226,6 @@ onUnmounted(() => window.removeEventListener('pageshow', restoreLoginButton))
 .college-brand { display: inline-flex; align-items: center; gap: 14px; }
 .college-brand img { flex-shrink: 0; filter: grayscale(1) brightness(0) invert(1); opacity: .94; }
 .college-brand span { font-size: 18px; font-weight: 500; letter-spacing: .02em; white-space: nowrap; }
-.college-link { min-height: 44px; display: inline-flex; align-items: center; gap: 8px; font-size: 13px; white-space: nowrap; }
-.college-link svg { width: 17px; height: 17px; }
-.college-link:hover { text-decoration: underline; text-underline-offset: 6px; }
-.campus-cover a:focus-visible { outline-color: #fffaf0; }
 .cover-content {
   flex: 1;
   padding: 60px 0 58px;
@@ -251,7 +259,6 @@ onUnmounted(() => window.removeEventListener('pageshow', restoreLoginButton))
   letter-spacing: .25em;
 }
 .college-motto span { writing-mode: vertical-rl; }
-.college-motto:hover { color: #fff; }
 .cover-caption {
   min-height: 32px;
   width: fit-content;
@@ -261,7 +268,6 @@ onUnmounted(() => window.removeEventListener('pageshow', restoreLoginButton))
   font-size: 12px;
   letter-spacing: .06em;
 }
-.cover-caption svg { width: 14px; height: 14px; opacity: .8; }
 .caption-rule { width: 26px; height: 1px; background: currentColor; opacity: .7; }
 .login-panel {
   display: flex;
@@ -276,8 +282,7 @@ onUnmounted(() => window.removeEventListener('pageshow', restoreLoginButton))
 .login-content {
   position: relative;
   width: 100%;
-  max-width: 440px;
-  padding: 40px;
+  max-width: 460px;
   border: 1px solid #d9d0c1;
   border-radius: 3px;
   background: #fffcf5;
@@ -286,42 +291,58 @@ onUnmounted(() => window.removeEventListener('pageshow', restoreLoginButton))
 .login-content::before {
   content: '';
   position: absolute;
-  left: 40px;
+  z-index: 2;
+  left: 34px;
   top: -1px;
   width: 48px;
   height: 3px;
   background: var(--wine);
 }
-.login-heading { display: flex; align-items: center; justify-content: space-between; gap: 24px; margin-bottom: 28px; padding-bottom: 24px; border-bottom: 1px solid #e4ddcf; }
-.login-heading h2 { margin: 0; font-family: inherit; font-size: 32px; font-weight: 500; line-height: 1.3; }
-.card-seal { display: block; flex-shrink: 0; filter: grayscale(1) sepia(.7); opacity: .65; }
+.login-heading {
+  position: relative;
+  display: flex;
+  align-items: center;
+  min-height: 148px;
+  padding: 30px 34px;
+  overflow: hidden;
+  border-bottom: 1px solid #e4ddcf;
+  background: #f4f0e5;
+}
+.heading-identity { position: relative; z-index: 1; display: flex; align-items: center; gap: 15px; }
+.login-heading h2 { margin: 0; font-family: inherit; font-size: 30px; font-weight: 500; line-height: 1.3; }
+.card-seal { display: block; flex-shrink: 0; filter: grayscale(1) sepia(.7); opacity: .72; }
+.ginkgo-drawing { position: absolute; right: -4px; bottom: -24px; width: 205px; height: 162px; pointer-events: none; }
+.ginkgo-drawing .leaf-shape { fill: #d1bd79; fill-opacity: .24; stroke: #ad985c; stroke-width: 1; }
+.ginkgo-drawing .leaf-veins { stroke: #ad985c; stroke-width: .75; opacity: .62; }
+.ginkgo-drawing .ginkgo-stems { stroke: #9c8a5d; stroke-width: 1.2; }
+.ginkgo-small { opacity: .75; }
+.login-form { padding: 32px 34px 28px; }
 .login-targets {
   display: grid;
   grid-template-columns: repeat(2, minmax(0, 1fr));
-  padding: 4px;
-  border: 1px solid #d7d0c3;
-  border-radius: 4px;
-  background: #eeeadf;
+  gap: 12px;
 }
 .login-targets button {
-  min-height: 46px;
+  position: relative;
+  min-height: 70px;
   display: inline-flex;
   align-items: center;
   justify-content: center;
   gap: 9px;
-  padding: 8px;
-  border: 1px solid transparent;
-  border-radius: 2px;
-  background: transparent;
+  padding: 12px;
+  border: 1px solid #dfd8ca;
+  border-radius: 3px;
+  background: #fcfaf5;
   color: #69645a;
   font-size: 15px;
   font-weight: 400;
   line-height: 1.4;
-  transition: background .15s ease, color .15s ease;
+  transition: background .15s ease, color .15s ease, border-color .15s ease;
 }
 .login-targets svg { width: 18px; height: 18px; flex-shrink: 0; }
-.login-targets button.selected { border-color: #ddd5c6; background: #fffdf8; color: var(--wine); box-shadow: 0 1px 3px rgba(44,35,19,.06); font-weight: 600; }
-.login-targets button:hover:not(:disabled) { color: var(--wine); }
+.login-targets .choice-check { position: absolute; top: 7px; right: 7px; width: 14px; height: 14px; border-radius: 50%; background: var(--wine); color: #fffaf4; }
+.login-targets button.selected { border-color: #a37a7b; background: #f6eeea; color: var(--wine); font-weight: 600; }
+.login-targets button:hover:not(:disabled) { border-color: #a37a7b; color: var(--wine); }
 .login-targets button:disabled { cursor: wait; opacity: .65; }
 .uis-button {
   min-height: 56px;
@@ -362,12 +383,15 @@ onUnmounted(() => window.removeEventListener('pageshow', restoreLoginButton))
   .college-brand img { width: 40px; height: 40px; }
   .college-brand { gap: 10px; }
   .college-brand span { font-size: 16px; }
-  .college-link { gap: 4px; font-size: 12px; }
   .cover-content { gap: 16px; }
   .cover-title h1 { font-size: 48px; }
   .college-motto { font-size: 24px; gap: 8px; padding-left: 14px; }
   .login-panel { padding-left: 32px; padding-right: 32px; }
-  .login-content { padding: 30px 26px; }
+  .login-heading { min-height: 132px; padding: 26px; }
+  .heading-identity { gap: 12px; }
+  .card-seal { width: 38px; height: 38px; }
+  .ginkgo-drawing { width: 180px; height: 142px; }
+  .login-form { padding: 28px 26px 24px; }
   .login-content::before { left: 26px; }
 }
 @media (max-width: 900px) {
@@ -382,10 +406,12 @@ onUnmounted(() => window.removeEventListener('pageshow', restoreLoginButton))
   .cover-caption { font-size: 11px; }
   .campus-photo::before { background-position: center 55%; }
   .login-panel { flex: 1; align-items: flex-start; padding: 28px; border-left: 0; }
-  .login-content { max-width: 440px; padding: 26px; }
-  .login-heading { margin-bottom: 22px; padding-bottom: 20px; }
+  .login-content { max-width: 440px; }
+  .login-heading { min-height: 104px; padding: 24px; }
   .login-heading h2 { font-size: 28px; }
-  .card-seal { width: 44px; height: 44px; }
+  .ginkgo-drawing { width: 160px; height: 128px; bottom: -24px; }
+  .login-form { padding: 24px; }
+  .login-targets button { min-height: 62px; }
   .help-toggle { margin-top: 22px; }
 }
 @media (max-width: 400px) {
@@ -393,16 +419,20 @@ onUnmounted(() => window.removeEventListener('pageshow', restoreLoginButton))
   .cover-header { min-height: 76px; gap: 12px; }
   .college-brand span { font-size: 14px; }
   .college-brand img { width: 32px; height: 32px; }
-  .college-link { font-size: 11px; }
   .cover-content { min-height: 176px; }
   .cover-title h1 { font-size: 38px; }
   .college-motto { font-size: 20px; gap: 5px; padding-left: 10px; }
   .login-panel { padding: 22px 16px; }
-  .login-content { padding: 24px 22px; }
   .login-content::before { left: 22px; }
-  .login-heading { margin-bottom: 18px; padding-bottom: 16px; }
-  .card-seal { width: 38px; height: 38px; }
-  .uis-button { margin-top: 20px; padding-left: 18px; padding-right: 18px; }
+  .login-heading { min-height: 84px; padding: 20px 22px; }
+  .login-heading h2 { font-size: 26px; }
+  .card-seal { width: 32px; height: 32px; }
+  .ginkgo-drawing { width: 138px; height: 112px; bottom: -23px; }
+  .login-form { padding: 20px 22px; }
+  .login-targets { gap: 10px; }
+  .login-targets button { min-height: 60px; padding: 10px; font-size: 14px; gap: 7px; }
+  .login-targets .choice-check { top: 5px; right: 5px; width: 12px; height: 12px; }
+  .uis-button { min-height: 54px; margin-top: 18px; padding-left: 18px; padding-right: 18px; }
 }
 @media (prefers-reduced-motion: reduce) {
   .uis-button, .login-targets button, .help-chevron { transition: none; }
