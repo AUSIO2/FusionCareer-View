@@ -33,19 +33,7 @@
             <img class="card-seal" src="/brand/fudan-seal.svg" alt="" aria-hidden="true" width="42" height="42" />
             <h2 id="entry-title">登录</h2>
           </div>
-          <svg class="ginkgo-drawing" viewBox="0 0 260 190" fill="none" aria-hidden="true">
-            <g class="ginkgo-stems">
-              <path d="M142 188c13-29 19-50 22-67M148 176c-18-12-30-22-43-39" />
-            </g>
-            <g class="ginkgo-small">
-              <path class="leaf-shape" d="M105 138c-23 2-50-6-63-20-9-10-11-24-4-28 6-4 12 0 16-5 5-7 11-11 17-7 7 5 11 13 15 23 5-12 11-20 18-20 7 0 9 8 14 10 6 2 12-2 15 6 6 14-9 33-28 41Z" />
-              <path class="leaf-veins" d="M105 138C76 131 52 112 42 96m63 42c-19-15-34-35-38-52m38 52c-10-12-17-26-19-37m19 37c-3-19-2-35 2-48m-2 48c10-15 18-28 21-39" />
-            </g>
-            <g class="ginkgo-large">
-              <path class="leaf-shape" d="M164 121c-24-4-56-22-70-42-10-13-10-31 0-37 8-5 13 2 19-3 6-5 8-14 18-13 13 1 22 11 32 24 11-15 22-28 35-26 9 1 12 11 18 15 7 4 13-2 20 4 11 9 7 26-4 40-19 21-48 36-68 38Z" />
-              <path class="leaf-veins" d="M164 121c-34-25-54-48-64-72m64 72c-21-31-35-57-34-86m34 86c-9-26-10-50-1-71m1 71c9-34 22-62 33-87m-33 87c26-28 44-52 51-74m-51 74c33-18 57-41 69-68" />
-            </g>
-          </svg>
+          <GinkgoArtwork :active-target="isAdminTarget ? 'admin' : 'user'" />
         </div>
 
         <div class="login-form">
@@ -131,6 +119,7 @@
 <script setup>
 import { computed, onMounted, onUnmounted, ref } from 'vue'
 import { useRoute, useRouter } from 'vue-router'
+import GinkgoArtwork from '@/components/GinkgoArtwork.vue'
 
 const route = useRoute()
 const router = useRouter()
@@ -312,10 +301,6 @@ onUnmounted(() => window.removeEventListener('pageshow', restoreLoginButton))
 .login-heading h2 { margin: 0; font-family: inherit; font-size: 30px; font-weight: 500; line-height: 1.3; }
 .card-seal { display: block; flex-shrink: 0; filter: grayscale(1) sepia(.7); opacity: .72; }
 .ginkgo-drawing { position: absolute; right: -4px; bottom: -24px; width: 205px; height: 162px; pointer-events: none; }
-.ginkgo-drawing .leaf-shape { fill: #d1bd79; fill-opacity: .24; stroke: #ad985c; stroke-width: 1; }
-.ginkgo-drawing .leaf-veins { stroke: #ad985c; stroke-width: .75; opacity: .62; }
-.ginkgo-drawing .ginkgo-stems { stroke: #9c8a5d; stroke-width: 1.2; }
-.ginkgo-small { opacity: .75; }
 .login-form { padding: 32px 34px 28px; }
 .login-targets {
   display: grid;
