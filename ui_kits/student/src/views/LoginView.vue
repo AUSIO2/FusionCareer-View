@@ -1,164 +1,289 @@
 <template>
   <div class="login-page">
-    <div class="login-top-bar" />
-    <div class="grid-bg" />
-
-    <div class="login-center">
-      <!-- Brand -->
-      <div class="login-brand fade-up">
-        <div class="login-zh">复新生涯</div>
-        <div class="login-en">FusionCareer</div>
-        <div class="login-school">复旦大学新闻学院 · 就业与职业发展平台</div>
+    <section class="login-scene" aria-label="校园风景插画">
+      <div class="scene-topline">
+        <span>FUDAN JOURNALISM SCHOOL</span>
+        <span>CAREER DESK · 复旦大学新闻学院</span>
       </div>
+      <div class="scene-copy">
+        <span class="scene-index">01 / CAREER &amp; FUTURE</span>
+        <h1>复新生涯</h1>
+        <p>连接校园与职业世界，记录每一次出发。</p>
+        <div class="scene-categories" aria-label="平台内容">
+          <span>实习机会</span><span>校园招聘</span><span>职业发展</span>
+        </div>
+      </div>
+    </section>
 
-      <!-- 登录卡片（UIS 主体） -->
-      <div class="login-card fade-up" style="animation-delay:.1s">
-        <div class="uis-illust">
-          <div class="uis-logo">
-            <i class="ti ti-shield-check" />
-          </div>
-          <div class="uis-text">
-            <div class="uis-line1">Fudan UIS</div>
-            <div class="uis-line2">复旦大学统一身份认证 · 安全跳转</div>
-          </div>
+    <main class="login-panel">
+      <header class="panel-header">
+        <img class="fudan-seal" src="/brand/fudan-seal.svg" alt="复旦大学校徽" />
+        <div>
+          <strong>复旦大学新闻学院</strong>
+          <span>就业与职业发展平台</span>
+        </div>
+      </header>
+
+      <section class="login-content">
+        <div class="login-kicker">{{ isAdminTarget ? 'ADMINISTRATION' : 'STUDENT ACCESS' }}</div>
+        <h2>{{ isAdminTarget ? '管理端登录' : '欢迎回来' }}</h2>
+        <p class="login-intro">
+          {{ isAdminTarget
+            ? '管理岗位、问卷和学生投递。身份与权限将由系统自动核验。'
+            : '使用复旦统一身份认证进入复新生涯。' }}
+        </p>
+
+        <div v-if="errorMessage" class="login-alert" role="alert">
+          <i class="ti ti-alert-circle" />
+          <span>{{ errorMessage }}</span>
         </div>
 
-        <button class="btn-primary btn-red" @click="loginUIS">
-          <i class="ti ti-external-link" />
-          <span>前往 UIS 登录</span>
+        <button class="uis-button" type="button" :disabled="loggingIn" @click="loginCurrentTarget">
+          <span>{{ loggingIn ? '正在前往统一身份认证…' : '使用复旦 UIS 登录' }}</span>
+          <i :class="['ti', loggingIn ? 'ti-loader-2 login-spinner' : 'ti-arrow-up-right']" />
         </button>
 
-        <div class="helper-text">
-          <i class="ti ti-info-circle" />
-          将跳转至复旦大学统一身份认证页面，认证后自动返回
+        <div class="auth-note">
+          <i class="ti ti-shield-check" />
+          <span>认证在复旦大学统一身份认证平台完成，本平台不会获取你的密码。</span>
         </div>
-      </div>
-    </div>
 
-    <!-- 管理员入口（左下角） -->
-    <button class="admin-corner" @click="loginAdmin">
-      <i class="ti ti-shield-lock" />
-      进入管理端
-    </button>
+        <button class="target-switch" type="button" :disabled="loggingIn" @click="switchTarget">
+          <span>{{ isAdminTarget ? '返回学生入口' : '管理人员入口' }}</span>
+          <i class="ti ti-arrow-right" />
+        </button>
+      </section>
+
+      <footer class="panel-footer">
+        <span>© {{ currentYear }} 复旦大学新闻学院</span>
+        <span>FusionCareer</span>
+      </footer>
+    </main>
   </div>
 </template>
 
 <script setup>
-import { useRoute } from 'vue-router'
+import { computed, ref } from 'vue'
+import { useRoute, useRouter } from 'vue-router'
 
 const route = useRoute()
-const beginLogin = (target) => {
-  window.location.assign(`/fudan/login?target=${target}`)
+const router = useRouter()
+const loggingIn = ref(false)
+const currentYear = new Date().getFullYear()
+const isAdminTarget = computed(() => route.query.target === 'admin')
+const errorMessage = computed(() => ({
+  sso_login_failed: '统一身份认证未完成，请重新尝试。',
+  admin_forbidden: '当前账号没有管理权限，请使用学生入口。',
+}[route.query.error || route.query.notice] || ''))
+
+function loginCurrentTarget() {
+  if (loggingIn.value) return
+  loggingIn.value = true
+  window.location.assign(`/fudan/login?target=${isAdminTarget.value ? 'admin' : 'user'}`)
 }
 
-const loginUIS = () => beginLogin(route.query.target === 'admin' ? 'admin' : 'user')
-const loginAdmin = () => beginLogin('admin')
+function switchTarget() {
+  router.replace({ path: '/login', query: isAdminTarget.value ? {} : { target: 'admin' } })
+}
 </script>
 
 <style scoped>
-/* ── 页面骨架 ── */
 .login-page {
-  min-height: 100vh; background: var(--bg);
-  display: flex; flex-direction: column;
-  position: relative; overflow: hidden;
+  min-height: 100vh;
+  display: grid;
+  grid-template-columns: minmax(0, 1.45fr) minmax(420px, .75fr);
+  background: #f4f0e8;
+  color: #201d1a;
 }
-.login-top-bar { height: 4px; background: var(--red); flex-shrink: 0; position: relative; z-index: 10; }
+.login-scene {
+  min-height: 100vh;
+  position: relative;
+  display: flex;
+  flex-direction: column;
+  justify-content: space-between;
+  overflow: hidden;
+  padding: 2rem 2.4rem 3rem;
+  color: #fff;
+  background:
+    linear-gradient(90deg, rgba(45,23,20,.68) 0%, rgba(60,30,23,.32) 52%, rgba(45,23,20,.08) 100%),
+    linear-gradient(0deg, rgba(38,20,17,.6) 0%, transparent 52%),
+    url('/images/login-campus-v1.webp') center / cover no-repeat;
+}
+.scene-topline {
+  display: flex;
+  justify-content: space-between;
+  gap: 1rem;
+  padding-bottom: .9rem;
+  border-bottom: 1px solid rgba(255,255,255,.5);
+  font-size: .66rem;
+  font-weight: 600;
+  letter-spacing: .15em;
+}
+.scene-copy { max-width: 650px; }
+.scene-index {
+  display: block;
+  margin-bottom: .9rem;
+  font-size: .7rem;
+  font-weight: 700;
+  letter-spacing: .16em;
+}
+.scene-copy h1 {
+  margin: 0;
+  font-family: var(--font-serif);
+  font-size: clamp(3.6rem, 7vw, 7.4rem);
+  font-weight: 900;
+  line-height: .95;
+  letter-spacing: -.055em;
+  text-shadow: 0 2px 24px rgba(22,10,8,.25);
+}
+.scene-copy p {
+  margin: 1rem 0 1.6rem;
+  font-family: var(--font-serif);
+  font-size: clamp(1rem, 1.5vw, 1.35rem);
+  letter-spacing: .06em;
+}
+.scene-categories {
+  display: flex;
+  gap: 0;
+  width: fit-content;
+  border-top: 1px solid rgba(255,255,255,.55);
+  border-bottom: 1px solid rgba(255,255,255,.55);
+}
+.scene-categories span {
+  padding: .65rem 1.25rem;
+  font-size: .75rem;
+  letter-spacing: .08em;
+}
+.scene-categories span + span { border-left: 1px solid rgba(255,255,255,.4); }
 
-.grid-bg {
-  position: fixed; inset: 0; pointer-events: none; z-index: 0;
-  background-image:
-    linear-gradient(rgba(0,0,0,.025) 1px, transparent 1px),
-    linear-gradient(90deg, rgba(0,0,0,.025) 1px, transparent 1px);
-  background-size: 40px 40px;
-  mask-image: radial-gradient(ellipse 70% 60% at 50% 45%, #000 30%, transparent 80%);
-  -webkit-mask-image: radial-gradient(ellipse 70% 60% at 50% 45%, #000 30%, transparent 80%);
+.login-panel {
+  min-height: 100vh;
+  display: flex;
+  flex-direction: column;
+  padding: 2rem clamp(2rem, 4vw, 5rem) 1.5rem;
+  background: #f7f3eb;
+  border-left: 1px solid rgba(65,54,45,.14);
+}
+.panel-header {
+  display: flex;
+  align-items: center;
+  gap: .85rem;
+  padding-bottom: 1.4rem;
+  border-bottom: 1px solid #d8d0c5;
+}
+.fudan-seal { width: 52px; height: 52px; object-fit: contain; }
+.panel-header strong { display: block; font-family: var(--font-serif); font-size: .95rem; }
+.panel-header span { display: block; margin-top: .18rem; color: #776f67; font-size: .72rem; letter-spacing: .04em; }
+.login-content {
+  width: 100%;
+  max-width: 450px;
+  margin: auto 0;
+  padding: 3rem 0;
+}
+.login-kicker {
+  margin-bottom: 1rem;
+  color: #8c151b;
+  font-size: .68rem;
+  font-weight: 700;
+  letter-spacing: .18em;
+}
+.login-content h2 {
+  margin: 0;
+  font-family: var(--font-serif);
+  font-size: clamp(2.2rem, 4vw, 3.6rem);
+  font-weight: 800;
+  line-height: 1.05;
+  letter-spacing: -.035em;
+}
+.login-intro {
+  min-height: 3em;
+  margin: 1rem 0 2rem;
+  color: #665f58;
+  font-size: .9rem;
+  line-height: 1.75;
+}
+.login-alert {
+  display: flex;
+  align-items: flex-start;
+  gap: .55rem;
+  margin-bottom: 1rem;
+  padding: .75rem .85rem;
+  border-top: 1px solid #b74449;
+  border-bottom: 1px solid #b74449;
+  color: #8c151b;
+  font-size: .78rem;
+  line-height: 1.5;
+}
+.uis-button {
+  width: 100%;
+  min-height: 54px;
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 1rem;
+  padding: .9rem 1.05rem;
+  border: 1px solid #7d1117;
+  border-radius: 5px;
+  background: #8c151b;
+  color: #fff;
+  font: 600 .92rem/1 var(--font-sans);
+  cursor: pointer;
+  transition: background .18s ease, transform .18s ease;
+}
+.uis-button:hover:not(:disabled) { background: #731116; transform: translateY(-1px); }
+.uis-button:disabled { cursor: wait; opacity: .72; }
+.login-spinner { animation: login-spin .8s linear infinite; }
+@keyframes login-spin { to { transform: rotate(360deg); } }
+.auth-note {
+  display: flex;
+  align-items: flex-start;
+  gap: .5rem;
+  margin-top: .85rem;
+  color: #817970;
+  font-size: .71rem;
+  line-height: 1.55;
+}
+.auth-note i { margin-top: .1rem; color: #8c151b; }
+.target-switch {
+  width: 100%;
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  margin-top: 2.4rem;
+  padding: .8rem 0;
+  border: 0;
+  border-top: 1px solid #d8d0c5;
+  border-bottom: 1px solid #d8d0c5;
+  background: transparent;
+  color: #554e48;
+  font: 500 .78rem/1 var(--font-sans);
+  cursor: pointer;
+}
+.target-switch:hover { color: #8c151b; }
+.target-switch i { transition: transform .18s ease; }
+.target-switch:hover i { transform: translateX(3px); }
+.panel-footer {
+  display: flex;
+  justify-content: space-between;
+  gap: 1rem;
+  padding-top: 1rem;
+  border-top: 1px solid #d8d0c5;
+  color: #8a8178;
+  font-size: .66rem;
+  letter-spacing: .04em;
 }
 
-/* ── 主体 ── */
-.login-center {
-  flex: 1; display: flex; flex-direction: column;
-  align-items: center; justify-content: center;
-  padding: 2.5rem 1rem; position: relative; z-index: 1;
+@media (max-width: 900px) {
+  .login-page { display: block; }
+  .login-scene { min-height: 38vh; padding: 1.25rem 1.2rem 1.8rem; }
+  .scene-topline span:last-child { display: none; }
+  .scene-copy h1 { font-size: clamp(3rem, 14vw, 5rem); }
+  .scene-copy p { margin-bottom: .8rem; font-size: .9rem; }
+  .scene-categories { display: none; }
+  .login-panel { min-height: 62vh; padding: 1.4rem 1.25rem 1rem; border-left: 0; }
+  .login-content { max-width: none; padding: 2.5rem 0; }
 }
-
-/* ── Brand ── */
-.login-brand  { text-align: center; margin-bottom: 2.25rem; display: flex; flex-direction: column; align-items: center; }
-.login-zh     { font-family: var(--font-serif); font-size: 2.4rem; font-weight: 900; color: var(--red); letter-spacing: -.01em; line-height: 1.15; text-align: center; }
-.login-en     { font-family: var(--font-sans); font-size: .82rem; font-weight: 600; color: var(--gold); letter-spacing: .24em; text-transform: uppercase; margin-top: .45rem; text-align: center; }
-.login-school { font-size: .9rem; color: var(--ink-2); margin-top: .7rem; letter-spacing: .02em; text-align: center; }
-
-/* ── 登录卡片 ── */
-.login-card {
-  width: 100%; max-width: 520px;
-  background: var(--bg-card); border: 1px solid var(--border);
-  border-radius: 20px; padding: 2.25rem 2.25rem 2rem;
-  box-shadow: var(--shadow-md), 0 24px 60px -20px rgba(140,21,27,.18), 0 8px 24px -8px rgba(0,0,0,.08);
-}
-
-/* ── UIS 区块 ── */
-.uis-illust {
-  display: flex; align-items: center; gap: 1rem;
-  padding: 1.25rem 1.3rem;
-  background: linear-gradient(135deg, var(--red-light) 0%, rgba(255,255,255,0) 100%);
-  border: 1px solid var(--red-border); border-radius: 14px;
-  margin-bottom: 1.4rem;
-}
-.uis-logo {
-  width: 52px; height: 52px; border-radius: 13px;
-  background: var(--red); color: #fff;
-  display: flex; align-items: center; justify-content: center;
-  font-size: 1.5rem; flex-shrink: 0;
-  box-shadow: 0 6px 14px rgba(140,21,27,.28);
-}
-.uis-line1 { font-weight: 700; font-size: 1.05rem; color: var(--ink); letter-spacing: .02em; }
-.uis-line2 { font-size: .78rem; color: var(--ink-2); margin-top: .2rem; }
-
-.helper-text {
-  margin-top: 1rem; font-size: .76rem; color: var(--ink-3);
-  display: flex; align-items: center; gap: .4rem; justify-content: center;
-}
-.helper-text i { font-size: .95rem; }
-
-/* ── 管理员角落入口 ── */
-.admin-corner {
-  position: fixed; left: 1.5rem; bottom: 1.5rem; z-index: 50;
-  display: inline-flex; align-items: center; gap: .4rem;
-  padding: .45rem .9rem; border-radius: var(--r-full);
-  font-size: .75rem; font-weight: 500; font-family: var(--font-sans);
-  color: var(--ink-3); background: var(--bg-card);
-  border: 1px solid var(--border); cursor: pointer;
-  box-shadow: var(--shadow-sm);
-  transition: all var(--t);
-}
-.admin-corner:hover { color: var(--gold); border-color: rgba(184,135,30,.35); background: var(--gold-light); }
-.admin-corner i { font-size: .85rem; }
-
-/* ── 按钮 ── */
-.btn-primary {
-  width: 100%; padding: .95rem; border-radius: 12px; border: none;
-  font-family: var(--font-sans); font-size: .98rem; font-weight: 600; color: #fff; cursor: pointer;
-  display: flex; align-items: center; justify-content: center; gap: .55rem;
-  transition: all var(--t); position: relative; overflow: hidden; letter-spacing: .02em;
-}
-.btn-primary i { font-size: 1.15rem; }
-.btn-primary::after {
-  content: ''; position: absolute; inset: 0;
-  background: linear-gradient(120deg, transparent 30%, rgba(255,255,255,.25) 50%, transparent 70%);
-  transform: translateX(-100%); transition: transform .6s;
-}
-.btn-primary:hover::after { transform: translateX(100%); }
-.btn-red  { background: var(--red);  box-shadow: 0 8px 18px rgba(140,21,27,.25); }
-.btn-red:hover  { background: var(--red-hover); transform: translateY(-1px); box-shadow: 0 10px 22px rgba(140,21,27,.32); }
-
-/* ── 动画 ── */
-.fade-enter-active, .fade-leave-active { transition: opacity .2s ease; }
-.fade-enter-from, .fade-leave-to { opacity: 0; }
-.fade-up { animation: fadeUp .45s ease both; }
-@keyframes fadeUp { from { opacity:0; transform:translateY(12px); } to { opacity:1; transform:none; } }
-
-@media (max-width: 560px) {
-  .login-card { padding: 1.5rem 1.4rem 1.4rem; }
-  .login-zh { font-size: 2rem; }
-  .admin-corner { left: 1rem; bottom: 1rem; }
+@media (prefers-reduced-motion: reduce) {
+  .uis-button, .target-switch i, .login-spinner { animation: none; transition: none; }
 }
 </style>
