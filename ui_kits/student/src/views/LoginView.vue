@@ -3,15 +3,9 @@
     <section class="login-scene" aria-label="校园风景插画">
       <div class="scene-topline">
         <span>FUDAN JOURNALISM SCHOOL</span>
-        <span>CAREER DESK · 复旦大学新闻学院</span>
       </div>
       <div class="scene-copy">
-        <span class="scene-index">01 / CAREER &amp; FUTURE</span>
         <h1>复新生涯</h1>
-        <p>连接校园与职业世界，记录每一次出发。</p>
-        <div class="scene-categories" aria-label="平台内容">
-          <span>实习机会</span><span>校园招聘</span><span>职业发展</span>
-        </div>
       </div>
     </section>
 
@@ -25,13 +19,7 @@
       </header>
 
       <section class="login-content">
-        <div class="login-kicker">{{ isAdminTarget ? 'ADMINISTRATION' : 'STUDENT ACCESS' }}</div>
-        <h2>{{ isAdminTarget ? '管理端登录' : '欢迎回来' }}</h2>
-        <p class="login-intro">
-          {{ isAdminTarget
-            ? '管理岗位、问卷和学生投递。身份与权限将由系统自动核验。'
-            : '使用复旦统一身份认证进入复新生涯。' }}
-        </p>
+        <h2>{{ isAdminTarget ? '管理端登录' : '登录复新生涯' }}</h2>
 
         <div v-if="errorMessage" class="login-alert" role="alert">
           <i class="ti ti-alert-circle" />
@@ -39,14 +27,9 @@
         </div>
 
         <button class="uis-button" type="button" :disabled="loggingIn" @click="loginCurrentTarget">
-          <span>{{ loggingIn ? '正在前往统一身份认证…' : '使用复旦 UIS 登录' }}</span>
+          <span>{{ loggingIn ? '正在跳转…' : '使用 UIS 登录' }}</span>
           <i :class="['ti', loggingIn ? 'ti-loader-2 login-spinner' : 'ti-arrow-up-right']" />
         </button>
-
-        <div class="auth-note">
-          <i class="ti ti-shield-check" />
-          <span>认证在复旦大学统一身份认证平台完成，本平台不会获取你的密码。</span>
-        </div>
 
         <button class="target-switch" type="button" :disabled="loggingIn" @click="switchTarget">
           <span>{{ isAdminTarget ? '返回学生入口' : '管理人员入口' }}</span>
@@ -138,13 +121,6 @@ function switchTarget() {
   letter-spacing: .15em;
 }
 .scene-copy { max-width: 650px; }
-.scene-index {
-  display: block;
-  margin-bottom: .9rem;
-  font-size: .7rem;
-  font-weight: 700;
-  letter-spacing: .16em;
-}
 .scene-copy h1 {
   margin: 0;
   font-family: var(--font-serif);
@@ -154,25 +130,6 @@ function switchTarget() {
   letter-spacing: -.055em;
   text-shadow: 0 2px 24px rgba(22,10,8,.25);
 }
-.scene-copy p {
-  margin: 1rem 0 1.6rem;
-  font-family: var(--font-serif);
-  font-size: clamp(1rem, 1.5vw, 1.35rem);
-  letter-spacing: .06em;
-}
-.scene-categories {
-  display: flex;
-  gap: 0;
-  width: fit-content;
-  border-top: 1px solid rgba(255,255,255,.55);
-  border-bottom: 1px solid rgba(255,255,255,.55);
-}
-.scene-categories span {
-  padding: .65rem 1.25rem;
-  font-size: .75rem;
-  letter-spacing: .08em;
-}
-.scene-categories span + span { border-left: 1px solid rgba(255,255,255,.4); }
 
 .login-panel {
   min-height: 100vh;
@@ -198,27 +155,13 @@ function switchTarget() {
   margin: auto 0;
   padding: 3rem 0;
 }
-.login-kicker {
-  margin-bottom: 1rem;
-  color: #8c151b;
-  font-size: .68rem;
-  font-weight: 700;
-  letter-spacing: .18em;
-}
 .login-content h2 {
-  margin: 0;
+  margin: 0 0 2rem;
   font-family: var(--font-serif);
   font-size: clamp(2.2rem, 4vw, 3.6rem);
   font-weight: 800;
   line-height: 1.05;
   letter-spacing: -.035em;
-}
-.login-intro {
-  min-height: 3em;
-  margin: 1rem 0 2rem;
-  color: #665f58;
-  font-size: .9rem;
-  line-height: 1.75;
 }
 .login-alert {
   display: flex;
@@ -252,16 +195,6 @@ function switchTarget() {
 .uis-button:disabled { cursor: wait; opacity: .72; }
 .login-spinner { animation: login-spin .8s linear infinite; }
 @keyframes login-spin { to { transform: rotate(360deg); } }
-.auth-note {
-  display: flex;
-  align-items: flex-start;
-  gap: .5rem;
-  margin-top: .85rem;
-  color: #817970;
-  font-size: .71rem;
-  line-height: 1.55;
-}
-.auth-note i { margin-top: .1rem; color: #8c151b; }
 .target-switch {
   width: 100%;
   display: flex;
@@ -296,8 +229,6 @@ function switchTarget() {
   .login-scene { min-height: 38vh; padding: 1.25rem 1.2rem 1.8rem; }
   .scene-topline span:last-child { display: none; }
   .scene-copy h1 { font-size: clamp(3rem, 14vw, 5rem); }
-  .scene-copy p { margin-bottom: .8rem; font-size: .9rem; }
-  .scene-categories { display: none; }
   .login-panel { min-height: 62vh; padding: 1.4rem 1.25rem 1rem; border-left: 0; }
   .login-content { max-width: none; padding: 2.5rem 0; }
 }
