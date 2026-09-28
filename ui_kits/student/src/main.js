@@ -15,16 +15,20 @@ router.isReady().then(() => {
   const readToken = readRoute.query.token
   const readNotice = readRoute.query.notice
   const readError = readRoute.query.error
-  if (readNotice === 'admin_forbidden') {
+  // LoginView keeps callback errors visible with the corresponding recovery action.
+  const isLoginPage = readRoute.path === '/login'
+  if (!isLoginPage && readNotice === 'admin_forbidden') {
     useToast().error('当前账号没有管理员权限')
-  } else if (readError === 'sso_login_failed') {
+  } else if (!isLoginPage && readError === 'sso_login_failed') {
     useToast().error('统一身份认证失败，请重新登录')
   }
-  if (readToken || readNotice || readError) {
+  if (readToken || (!isLoginPage && (readNotice || readError))) {
     const updateQuery = { ...readRoute.query }
     delete updateQuery.token
-    delete updateQuery.notice
-    delete updateQuery.error
+    if (!isLoginPage) {
+      delete updateQuery.notice
+      delete updateQuery.error
+    }
     router.replace({ path:readRoute.path, query:updateQuery })
   }
 })
