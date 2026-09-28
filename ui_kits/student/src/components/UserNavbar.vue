@@ -2,7 +2,7 @@
   <nav class="navbar">
     <div class="navbar-inner">
       <RouterLink class="brand" to="/home">
-        <div class="brand-dot"><i class="ti ti-map-pin-filled" /></div>
+        <img class="brand-mark" src="/brand/fudan-seal.svg" alt="复旦大学校徽" width="32" height="32" />
         <div>
           <div class="brand-zh">复新生涯</div>
           <div class="brand-en">FusionCareer</div>
