@@ -46,10 +46,21 @@
 .leaf-small {
   transform-origin: 115px 184px;
   transform: rotate(-6deg);
+  animation: ginkgo-breeze-small 7.4s ease-in-out -1.1s infinite;
 }
 .leaf-large {
   transform-origin: 177px 181px;
   transform: rotate(2deg);
+  animation: ginkgo-breeze-large 9s ease-in-out -3.2s infinite;
+}
+@keyframes ginkgo-breeze-small {
+  0%, 100% { transform: rotate(-8deg); }
+  45% { transform: rotate(-2deg); }
+  75% { transform: rotate(-5deg); }
+}
+@keyframes ginkgo-breeze-large {
+  0%, 100% { transform: rotate(0deg); }
+  50% { transform: rotate(4deg); }
 }
 .leaf-shape {
   fill: var(--leaf-fill, #d2bc79);
@@ -69,5 +80,8 @@
   stroke: var(--leaf-outline, #ad985c);
   stroke-width: 1.25;
   stroke-linecap: round;
+}
+@media (prefers-reduced-motion: reduce) {
+  .ginkgo-leaf { animation: none; }
 }
 </style>
