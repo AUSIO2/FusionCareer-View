@@ -36,7 +36,10 @@
 
     <main class="login-panel" aria-labelledby="entry-title">
       <div class="login-content">
-        <h2 id="entry-title">登录</h2>
+        <div class="login-heading">
+          <h2 id="entry-title">登录</h2>
+          <img class="card-seal" src="/brand/fudan-seal.svg" alt="" aria-hidden="true" width="54" height="54" />
+        </div>
 
         <div class="login-targets" role="group" aria-label="选择登录身份">
           <button
@@ -45,14 +48,26 @@
             :aria-pressed="!isAdminTarget"
             :disabled="loggingIn"
             @click="setTarget('user')"
-          >学生端</button>
+          >
+            <svg viewBox="0 0 24 24" fill="none" aria-hidden="true">
+              <circle cx="12" cy="8" r="3.5" />
+              <path d="M5 20v-2a7 7 0 0 1 14 0v2" />
+            </svg>
+            <span>学生端</span>
+          </button>
           <button
             type="button"
             :class="{ selected: isAdminTarget }"
             :aria-pressed="isAdminTarget"
             :disabled="loggingIn"
             @click="setTarget('admin')"
-          >管理端</button>
+          >
+            <svg viewBox="0 0 24 24" fill="none" aria-hidden="true">
+              <rect x="4" y="7" width="16" height="14" rx="2" />
+              <path d="M9 7V4h6v3M4 12h16M10 12v3h4v-3" />
+            </svg>
+            <span>管理端</span>
+          </button>
         </div>
 
         <div v-if="errorMessage" class="login-alert" role="alert">
@@ -88,6 +103,9 @@
             <path d="M9.8 9a2.3 2.3 0 0 1 4.5.6c0 1.8-2.3 1.9-2.3 3.4M12 16h.01" />
           </svg>
           <span>{{ helpOpen ? '收起帮助' : '登录帮助' }}</span>
+          <svg class="help-chevron" :class="{ expanded: helpOpen }" viewBox="0 0 24 24" fill="none" aria-hidden="true">
+            <path d="m7 10 5 5 5-5" />
+          </svg>
         </button>
 
         <div v-show="helpOpen" id="login-help" class="login-help">
@@ -245,9 +263,38 @@ onUnmounted(() => window.removeEventListener('pageshow', restoreLoginButton))
 }
 .cover-caption svg { width: 14px; height: 14px; opacity: .8; }
 .caption-rule { width: 26px; height: 1px; background: currentColor; opacity: .7; }
-.login-panel { display: flex; align-items: center; justify-content: center; padding: 64px clamp(32px, 4vw, 72px); border-left: 1px solid rgba(55,40,25,.08); }
-.login-content { width: 100%; max-width: 360px; }
-.login-content h2 { margin: 0 0 36px; font-family: inherit; font-size: 32px; font-weight: 500; line-height: 1.3; }
+.login-panel {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  padding: 64px clamp(32px, 3.4vw, 64px);
+  border-left: 1px solid rgba(55,40,25,.08);
+  background:
+    repeating-linear-gradient(105deg, rgba(102,83,57,.018) 0 1px, transparent 1px 5px),
+    linear-gradient(135deg, #f2eee5 0%, #e8e0d3 100%);
+}
+.login-content {
+  position: relative;
+  width: 100%;
+  max-width: 440px;
+  padding: 40px;
+  border: 1px solid #d9d0c1;
+  border-radius: 3px;
+  background: #fffcf5;
+  box-shadow: 0 18px 48px rgba(67,48,25,.09), 0 2px 5px rgba(67,48,25,.025);
+}
+.login-content::before {
+  content: '';
+  position: absolute;
+  left: 40px;
+  top: -1px;
+  width: 48px;
+  height: 3px;
+  background: var(--wine);
+}
+.login-heading { display: flex; align-items: center; justify-content: space-between; gap: 24px; margin-bottom: 28px; padding-bottom: 24px; border-bottom: 1px solid #e4ddcf; }
+.login-heading h2 { margin: 0; font-family: inherit; font-size: 32px; font-weight: 500; line-height: 1.3; }
+.card-seal { display: block; flex-shrink: 0; filter: grayscale(1) sepia(.7); opacity: .65; }
 .login-targets {
   display: grid;
   grid-template-columns: repeat(2, minmax(0, 1fr));
@@ -257,7 +304,11 @@ onUnmounted(() => window.removeEventListener('pageshow', restoreLoginButton))
   background: #eeeadf;
 }
 .login-targets button {
-  min-height: 42px;
+  min-height: 46px;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  gap: 9px;
   padding: 8px;
   border: 1px solid transparent;
   border-radius: 2px;
@@ -268,6 +319,7 @@ onUnmounted(() => window.removeEventListener('pageshow', restoreLoginButton))
   line-height: 1.4;
   transition: background .15s ease, color .15s ease;
 }
+.login-targets svg { width: 18px; height: 18px; flex-shrink: 0; }
 .login-targets button.selected { border-color: #ddd5c6; background: #fffdf8; color: var(--wine); box-shadow: 0 1px 3px rgba(44,35,19,.06); font-weight: 600; }
 .login-targets button:hover:not(:disabled) { color: var(--wine); }
 .login-targets button:disabled { cursor: wait; opacity: .65; }
@@ -293,8 +345,10 @@ onUnmounted(() => window.removeEventListener('pageshow', restoreLoginButton))
 .uis-button svg { width: 22px; height: 22px; flex-shrink: 0; }
 .uis-button:hover:not(:disabled) { background: #64242d; }
 .uis-button:disabled { cursor: wait; opacity: .72; }
-.help-toggle { min-height: 44px; display: inline-flex; align-items: center; gap: 7px; margin-top: 24px; padding: 0; border: 0; background: transparent; color: #656056; font-size: 14px; white-space: nowrap; }
+.help-toggle { min-height: 58px; width: 100%; display: flex; align-items: center; gap: 8px; margin-top: 26px; padding: 14px 0 0; border: 0; border-top: 1px solid #e4ddcf; background: transparent; color: #656056; font-size: 14px; white-space: nowrap; }
 .help-toggle svg { width: 17px; height: 17px; flex-shrink: 0; }
+.help-chevron { margin-left: auto; transition: transform .18s ease; }
+.help-chevron.expanded { transform: rotate(180deg); }
 .help-toggle:hover { color: var(--wine); }
 .login-alert { margin-top: 22px; padding: 12px 16px; border-left: 3px solid var(--wine); background: #f3e5e3; color: #722b32; font-size: 14px; line-height: 1.7; }
 .login-alert button { min-height: 36px; display: inline-flex; align-items: center; gap: 8px; margin-top: 4px; padding: 0; border: 0; background: transparent; color: inherit; font-size: inherit; font-weight: 600; text-decoration: underline; text-underline-offset: 4px; }
@@ -313,9 +367,11 @@ onUnmounted(() => window.removeEventListener('pageshow', restoreLoginButton))
   .cover-title h1 { font-size: 48px; }
   .college-motto { font-size: 24px; gap: 8px; padding-left: 14px; }
   .login-panel { padding-left: 32px; padding-right: 32px; }
+  .login-content { padding: 30px 26px; }
+  .login-content::before { left: 26px; }
 }
 @media (max-width: 900px) {
-  .login-page { display: block; }
+  .login-page { display: flex; flex-direction: column; }
   .campus-cover { min-height: 340px; padding: 0 28px 22px; }
   .cover-header { min-height: 82px; }
   .college-brand img { width: 36px; height: 36px; }
@@ -325,10 +381,12 @@ onUnmounted(() => window.removeEventListener('pageshow', restoreLoginButton))
   .college-motto { font-size: 23px; padding-top: 6px; padding-bottom: 8px; }
   .cover-caption { font-size: 11px; }
   .campus-photo::before { background-position: center 55%; }
-  .login-panel { padding: 40px 28px 28px; border-left: 0; }
-  .login-content { max-width: 400px; }
-  .login-content h2 { margin-bottom: 24px; font-size: 28px; }
-  .help-toggle { margin-top: 18px; }
+  .login-panel { flex: 1; align-items: flex-start; padding: 28px; border-left: 0; }
+  .login-content { max-width: 440px; padding: 26px; }
+  .login-heading { margin-bottom: 22px; padding-bottom: 20px; }
+  .login-heading h2 { font-size: 28px; }
+  .card-seal { width: 44px; height: 44px; }
+  .help-toggle { margin-top: 22px; }
 }
 @media (max-width: 400px) {
   .campus-cover { min-height: 306px; padding-left: 22px; padding-right: 22px; }
@@ -339,10 +397,15 @@ onUnmounted(() => window.removeEventListener('pageshow', restoreLoginButton))
   .cover-content { min-height: 176px; }
   .cover-title h1 { font-size: 38px; }
   .college-motto { font-size: 20px; gap: 5px; padding-left: 10px; }
-  .login-panel { padding: 32px 24px 24px; }
+  .login-panel { padding: 22px 16px; }
+  .login-content { padding: 24px 22px; }
+  .login-content::before { left: 22px; }
+  .login-heading { margin-bottom: 18px; padding-bottom: 16px; }
+  .card-seal { width: 38px; height: 38px; }
+  .uis-button { margin-top: 20px; padding-left: 18px; padding-right: 18px; }
 }
 @media (prefers-reduced-motion: reduce) {
-  .uis-button, .login-targets button { transition: none; }
+  .uis-button, .login-targets button, .help-chevron { transition: none; }
   .login-spinner { animation: none; }
 }
 </style>
