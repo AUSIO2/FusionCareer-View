@@ -104,10 +104,28 @@ function switchTarget() {
   overflow: hidden;
   padding: 2rem 2.4rem 3rem;
   color: #fff;
+  background: #46332a;
+  isolation: isolate;
+}
+.login-scene::before {
+  content: '';
+  position: absolute;
+  z-index: -2;
+  inset: 0;
+  background: url('/images/login-journalism-autumn.webp') center 42% / cover no-repeat;
+  filter: saturate(.78) sepia(.16) contrast(.92) brightness(.82);
+  transform: scale(1.18);
+  transform-origin: center top;
+}
+.login-scene::after {
+  content: '';
+  position: absolute;
+  z-index: -1;
+  inset: 0;
   background:
-    linear-gradient(90deg, rgba(45,23,20,.68) 0%, rgba(60,30,23,.32) 52%, rgba(45,23,20,.08) 100%),
-    linear-gradient(0deg, rgba(38,20,17,.6) 0%, transparent 52%),
-    url('/images/login-campus-v1.webp') center / cover no-repeat;
+    linear-gradient(90deg, rgba(48,24,18,.6) 0%, rgba(57,32,22,.28) 55%, rgba(45,25,18,.08) 100%),
+    linear-gradient(0deg, rgba(38,20,15,.72) 0%, rgba(45,25,18,.12) 62%, transparent 100%),
+    linear-gradient(140deg, rgba(255,215,156,.13), transparent 55%);
 }
 .scene-topline {
   display: flex;
