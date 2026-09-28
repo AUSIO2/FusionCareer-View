@@ -6,7 +6,7 @@
       <p v-if="loading">加载中…</p>
       <div v-else-if="error" role="alert">{{ error }} <button class="btn btn-secondary btn-sm" @click="load">重试</button></div>
       <template v-else>
-        <div class="actions"><span>学工号：{{ user.studentId }} · {{ roleLabel(user.role) }}</span>
+        <div class="actions"><span>学工号：{{ user.studentId }} · <b :class="['badge', roleBadgeClass(user.role)]">{{ roleLabel(user.role) }}</b></span>
           <button class="btn btn-secondary btn-sm" :disabled="busy" @click="download(`/admin/user/export?userIds=${user.id}`, '用户资料.xlsx')">下载资料表格</button></div>
         <h3>个人资料</h3>
         <dl v-if="profile" class="profile-grid"><template v-for="(label, field) in profileFields" :key="field">
@@ -30,7 +30,7 @@
 <script setup>
 import { onMounted, ref } from 'vue'
 import { apiJson, apiDownloadBlob } from '@/lib/api'
-import { roleLabel } from '@/lib/roles.mjs'
+import { roleBadgeClass, roleLabel } from '@/lib/roles.mjs'
 import { useToast } from '@/composables/useToast'
 const props = defineProps({ user: { type: Object, required: true } })
 defineEmits(['close'])

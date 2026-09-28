@@ -17,8 +17,8 @@
       <!-- main 区域：撑满剩余，右侧 padding 与 admin-main 对齐 -->
       <div class="navbar-main-col">
         <div class="nav-right">
-          <div class="nav-avatar">{{ displayAdminInitial }}</div>
-          <span style="font-size:.8rem;color:var(--ink-2)">{{ displayAdminName }}</span>
+          <div :class="['nav-avatar', isSuperAdmin && 'enchanted-avatar']">{{ displayAdminInitial }}</div>
+          <span :class="isSuperAdmin && 'enchanted-name'" style="font-size:.8rem;color:var(--ink-2)">{{ displayAdminName }}</span>
           <button type="button" class="btn btn-ghost btn-sm" @click="logoutSession()"><i class="ti ti-logout" /></button>
         </div>
       </div>
@@ -71,7 +71,7 @@
                 <tr v-for="user in displayUsers" v-else :key="user.id">
                   <td style="font-weight:600">{{ user.realName || user.username || '—' }}</td>
                   <td style="font-family:monospace;color:var(--ink-2)">{{ user.studentId || '—' }}</td>
-                  <td><span :class="['badge', user.role==='NORMAL'?'badge-gray':'badge-red']">{{ roleLabel(user.role) }}</span></td>
+                  <td><span :class="['badge', roleBadgeClass(user.role)]">{{ roleLabel(user.role) }}</span></td>
                   <td><span :class="['badge', user.status==='NORMAL'?'badge-green':'badge-gray']">{{ user.status==='NORMAL'?'正常':'已禁用' }}</span></td>
                   <td style="color:var(--ink-3)">{{ user.createdAt?.replace('T', ' ').slice(0, 16) || '—' }}</td>
                   <td>
@@ -864,7 +864,7 @@ import {
 } from '@/lib/jobImport.mjs'
 import PageJump from '@/components/PageJump.vue'
 import AdminUserDetails from '@/components/AdminUserDetails.vue'
-import { ROLE_LABELS, canManageSystem, roleLabel } from '@/lib/roles.mjs'
+import { ROLE_LABELS, canManageSystem, roleBadgeClass, roleLabel } from '@/lib/roles.mjs'
 import { EDU_OPTIONS, formatCities, normalizeJobRequirements } from '@/lib/jobRequirements.mjs'
 
 const toast = useToast()
