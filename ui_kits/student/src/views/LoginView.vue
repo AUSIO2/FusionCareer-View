@@ -20,6 +20,7 @@
 
       <section class="login-content">
         <h2>{{ isAdminTarget ? '管理端登录' : '登录复新生涯' }}</h2>
+        <p class="login-wish">祝你今天好运</p>
 
         <div v-if="errorMessage" class="login-alert" role="alert">
           <i class="ti ti-alert-circle" />
@@ -156,12 +157,19 @@ function switchTarget() {
   padding: 3rem 0;
 }
 .login-content h2 {
-  margin: 0 0 2rem;
+  margin: 0;
   font-family: var(--font-serif);
   font-size: clamp(2.2rem, 4vw, 3.6rem);
   font-weight: 800;
   line-height: 1.05;
   letter-spacing: -.035em;
+}
+.login-wish {
+  margin: .75rem 0 2rem;
+  color: #756d65;
+  font-family: var(--font-serif);
+  font-size: .9rem;
+  letter-spacing: .06em;
 }
 .login-alert {
   display: flex;
