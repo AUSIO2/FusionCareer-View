@@ -46,7 +46,7 @@
           </div>
 
           <div style="display:flex;align-items:center;gap:.625rem;margin-bottom:1.1rem;flex-wrap:wrap">
-            <input class="form-control" style="flex:1;min-width:180px;padding:.5rem .875rem" v-model="searchUsername" placeholder="搜索用户名或学工号..." @keyup.enter="searchUsers" />
+            <input class="form-control" style="flex:1;min-width:180px;padding:.5rem .875rem" v-model="searchUsername" placeholder="搜索姓名或学工号..." @keyup.enter="searchUsers" />
             <select class="form-control" style="min-width:120px;padding:.5rem .875rem" v-model="searchUserRole" @change="searchUsers">
               <option value="">全部角色</option><option value="SUPERADMIN">超级管理员</option><option value="ADMIN">管理员</option><option value="NORMAL">普通用户</option>
             </select>
@@ -69,7 +69,7 @@
                 </tr>
                 <tr v-else-if="!displayUsers.length"><td colspan="6" class="table-state">暂无用户</td></tr>
                 <tr v-for="user in displayUsers" v-else :key="user.id">
-                  <td style="font-weight:600">{{ user.username || '—' }}</td>
+                  <td style="font-weight:600">{{ user.realName || user.username || '—' }}</td>
                   <td style="font-family:monospace;color:var(--ink-2)">{{ user.studentId || '—' }}</td>
                   <td><span :class="['badge', user.role==='NORMAL'?'badge-gray':'badge-red']">{{ roleLabel(user.role) }}</span></td>
                   <td><span :class="['badge', user.status==='NORMAL'?'badge-green':'badge-gray']">{{ user.status==='NORMAL'?'正常':'已禁用' }}</span></td>
@@ -143,7 +143,7 @@
                   <td class="col-check"><input type="checkbox" :checked="selected.includes(j.id)" @change="toggleSel(j.id)" /></td>
                   <td><span style="font-weight:500;cursor:pointer;color:var(--ink)" @click="openEdit(j)">{{ j.positionName }}</span></td>
                   <td>{{ j.companyName }}</td>
-                  <td>{{ j.workCity }}</td>
+                  <td>{{ formatCities(j) || '—' }}</td>
                   <td>{{ j.applicationDeadline || '—' }}</td>
                   <td><span :class="['badge', STATUS_CLASS[j.status]]">{{ STATUS_LABEL[j.status] }}</span></td>
                   <td>
@@ -178,8 +178,10 @@
           <div class="page-hd">
             <div>
               <h1><i :class="editingId?'ti ti-edit':'ti ti-plus'" />{{ editingId ? '编辑岗位' : '新建岗位' }}</h1>
-              
             </div>
+            <button v-if="editingId" class="btn btn-secondary btn-sm" @click="leaveJobEditor">
+              <i class="ti ti-arrow-left" />{{ editingReturnView === 'drafts' ? '返回草稿箱' : '返回岗位列表' }}
+            </button>
           </div>
 
           <div v-if="!editingId" class="create-entry-grid">
@@ -198,12 +200,16 @@
               <div v-if="structureWarnings.length" class="structure-warning" role="alert">
                 <div v-for="warning in structureWarnings" :key="warning">{{ warning }}</div>
               </div>
-              <div v-if="structuredJobs.length>1" style="margin-top:.75rem">
-                <div style="font-size:.78rem;color:var(--ink-2);margin-bottom:.45rem">识别到多个岗位，请选择一个继续编辑：</div>
-                <div style="display:flex;gap:.5rem;flex-wrap:wrap">
-                  <button v-for="(job, index) in structuredJobs" :key="index" type="button" class="btn btn-secondary btn-sm" @click="applyStructuredJob(job)">
-                    {{ job.companyName || '未知公司' }} · {{ job.positionName || `岗位 ${index + 1}` }}
+              <div v-if="structuredJobs.length" class="structured-job-list" aria-label="待处理岗位">
+                <div v-for="(job, index) in structuredJobs" :key="job._selectionId" class="structured-job-option">
+                  <button type="button" :class="['structured-job-select', structuredIndex===index&&'active']"
+                    @click="selectStructuredJob(index)">
+                    <span>岗位 {{ index + 1 }}</span>
+                    <strong>{{ job.positionName || '未命名岗位' }}</strong>
+                    <small>{{ job.companyName || '公司待补充' }}</small>
                   </button>
+                  <button type="button" class="structured-job-remove" :aria-label="`删除${job.positionName || `岗位 ${index + 1}`}`"
+                    title="从识别结果中删除" @click="removeStructuredJob(index)"><i class="ti ti-x" /></button>
                 </div>
               </div>
             </section>
@@ -316,14 +322,13 @@
                   <option value="OTHER">其他</option>
                 </select>
               </div>
-              <div class="form-group"><label class="form-label">学历要求</label>
-                <select class="form-control" v-model="nj.reqEduLevel">
-                  <option value="">不限</option>
-                  <option value="UNDERGRADUATE">本科生</option>
-                  <option value="ACADEMIC_MASTER">学术硕士研究生</option>
-                  <option value="PROFESSIONAL_MASTER">专业硕士研究生</option>
-                  <option value="DOCTORAL">博士研究生</option>
-                </select>
+              <div class="form-group span-2"><label class="form-label">学历要求（可多选）</label>
+                <div class="multi-options">
+                  <label v-for="readOption in EDU_OPTIONS" :key="readOption[0]" class="multi-option">
+                    <input v-model="nj.reqEduLevels" type="checkbox" :value="readOption[0]" />
+                    <span>{{ readOption[1] }}</span>
+                  </label>
+                </div>
               </div>
             </div>
           </div>
@@ -340,8 +345,15 @@
               <div class="form-group"><label class="form-label">工作省份</label>
                 <input class="form-control" v-model="nj.workProvince" placeholder="如：上海市" />
               </div>
-              <div class="form-group"><label class="form-label">工作城市</label>
-                <input class="form-control" v-model="nj.workCity" placeholder="如：上海" />
+              <div class="form-group span-2"><label class="form-label">工作城市（可填写多个）</label>
+                <div class="multi-entry">
+                  <input class="form-control" v-model="cityDraft" placeholder="输入城市后按回车，如：上海" @keyup.enter.prevent="addCity" />
+                  <button class="btn btn-secondary btn-sm" type="button" @click="addCity">添加</button>
+                </div>
+                <div v-if="nj.workCities.length" class="multi-tags">
+                  <button v-for="readCity in nj.workCities" :key="readCity" class="multi-tag" type="button"
+                    @click="removeCity(readCity)">{{ readCity }} <i class="ti ti-x" /></button>
+                </div>
               </div>
               <div class="form-group span-2"><label class="form-label">详细地点</label>
                 <input class="form-control" v-model="nj.workLocation" placeholder="如：徐汇区某路某号" />
@@ -493,7 +505,7 @@
 
           <div class="card card-p">
             <div style="display:flex;align-items:center;justify-content:flex-end;gap:.5rem">
-              <button class="btn btn-secondary btn-sm" @click="v=editingId?'list':'list'; _resetForm()">取消</button>
+              <button class="btn btn-secondary btn-sm" @click="leaveJobEditor">取消</button>
               <button class="btn btn-secondary btn-sm" :disabled="savingJob" @click="saveDraft"><i class="ti ti-device-floppy" />保存草稿</button>
               <button class="btn btn-primary btn-sm" :disabled="savingJob" @click="publishJob"><i class="ti ti-send" />{{ savingJob ? '提交中…' : '发布上线' }}</button>
             </div>
@@ -533,7 +545,7 @@
                     <td class="col-check"><input type="checkbox" :checked="draftSelected.includes(j.id)" @change="draftToggleSel(j.id)" /></td>
                     <td><span style="font-weight:500;color:var(--ink)">{{ j.positionName }}</span></td>
                     <td>{{ j.companyName }}</td>
-                    <td>{{ j.workCity }}</td>
+                    <td>{{ formatCities(j) || '—' }}</td>
                     <td>{{ j.applicationDeadline || '—' }}</td>
                     <td>
                       <span v-if="j.sourceType==='CRAWL'" class="badge" style="background:var(--blue-bg,#eaf0fb);color:var(--blue,#1b4f9c);gap:3px;font-size:.7rem"><i class="ti ti-robot" style="font-size:9px" />自动导入</span>
@@ -853,6 +865,7 @@ import {
 import PageJump from '@/components/PageJump.vue'
 import AdminUserDetails from '@/components/AdminUserDetails.vue'
 import { ROLE_LABELS, canManageSystem, roleLabel } from '@/lib/roles.mjs'
+import { EDU_OPTIONS, formatCities, normalizeJobRequirements } from '@/lib/jobRequirements.mjs'
 
 const toast = useToast()
 const v     = ref('list')
@@ -875,6 +888,7 @@ const savingJob = ref(false)
 const rawJobText = ref('')
 const structuring = ref(false)
 const structuredJobs = ref([])
+const structuredIndex = ref(-1)
 const structureWarnings = ref([])
 const bulkImportInput = ref(null)
 const bulkImportFile = ref(null)
@@ -1014,7 +1028,7 @@ function toggleAll(c) { selected.value = c ? displayJobs.value.map(j=>j.id) : []
 function toggleSel(id) { selected.value.includes(id) ? selected.value = selected.value.filter(i=>i!==id) : selected.value.push(id) }
 
 function mapJob(job) {
-  return { ...job, rec: !!job.recommended, apps: Number(job.applicationCount || 0) }
+  return { ...normalizeJobRequirements(job), rec: !!job.recommended, apps: Number(job.applicationCount || 0) }
 }
 
 function jobPayload(job, status = job.status) {
@@ -1347,9 +1361,9 @@ const NJ_INIT = () => ({
   sourceUrl: '',
   positionName: '', companyName: '', department: '', headcount: null,
   jobCategory: '', jobSubCategory: '',
-  recruitType: '', reqEduLevel: '',
+  recruitType: '', reqEduLevel: '', reqEduLevels: [],
   workStartDate: '', workEndDate: '', applicationDeadline: '',
-  workProvince: '', workCity: '', workLocation: '',
+  workProvince: '', workCity: '', workCities: [], workLocation: '',
   workMode: '', workDurationType: '', workDaysPerWeek: null, workPeriodType: '',
   salaryMin: null, salaryMax: null, salaryDisplay: '',
   jobDesc: '', reqMajor: '', reqGradYear: '', reqSkills: '', reqOther: '',
@@ -1385,6 +1399,18 @@ function moveQ(idx, dir) {
 }
 const nj = ref(NJ_INIT())
 const editingId = ref(null)
+const editingReturnView = ref('list')
+const cityDraft = ref('')
+
+function addCity() {
+  const readCities = cityDraft.value.split(/[,，、;；]/).map(readCity => readCity.trim()).filter(Boolean)
+  nj.value.workCities = [...new Set([...nj.value.workCities, ...readCities])]
+  cityDraft.value = ''
+}
+
+function removeCity(readCity) {
+  nj.value.workCities = nj.value.workCities.filter(updateCity => updateCity !== readCity)
+}
 
 async function structureJob() {
   if (!rawJobText.value.trim() || structuring.value) return
@@ -1395,11 +1421,18 @@ async function structureJob() {
     const result = await apiJson('/admin/job-post/structure', {
       method: 'POST', body: JSON.stringify({ text: rawJobText.value }),
     })
-    structuredJobs.value = result?.jobs || []
+    structuredJobs.value = (result?.jobs || []).map((readJob, readIndex) => ({
+      ...NJ_INIT(), ...normalizeJobRequirements(readJob),
+      questions: NJ_INIT().questions,
+      _selectionId: `${Date.now()}-${readIndex}`,
+    }))
     structureWarnings.value = result?.warnings || []
-    if (structuredJobs.value.length === 1) applyStructuredJob(structuredJobs.value[0])
-    else if (!structuredJobs.value.length) toast.error('未识别出有效岗位，请调整原文后重试')
-    else toast.success(`识别到 ${structuredJobs.value.length} 个岗位，请选择一个`)
+    if (!structuredJobs.value.length) toast.error('未识别出有效岗位，请调整原文后重试')
+    else {
+      structuredIndex.value = -1
+      selectStructuredJob(0)
+      toast.success(`识别到 ${structuredJobs.value.length} 个岗位，请逐个检查并保存`)
+    }
   } catch (error) {
     toast.error(error?.message || '岗位解析失败，请稍后重试')
   } finally {
@@ -1407,16 +1440,61 @@ async function structureJob() {
   }
 }
 
-function applyStructuredJob(job) {
-  const questions = nj.value.questions
-  nj.value = { ...NJ_INIT(), ...job, sourceType: 'PLATFORM', status: 'OFFLINE', questions }
-  deliveryMode.value = job.sourceUrl ? 'external' : 'internal'
-  structuredJobs.value = []
-  toast.success('已填入标准字段，请检查后保存或发布')
+function selectStructuredJob(readIndex) {
+  if (readIndex < 0 || readIndex >= structuredJobs.value.length || readIndex === structuredIndex.value) return
+  if (structuredIndex.value >= 0) {
+    structuredJobs.value[structuredIndex.value] = {
+      ...nj.value,
+      _selectionId: structuredJobs.value[structuredIndex.value]._selectionId,
+    }
+  }
+  structuredIndex.value = readIndex
+  const readJob = structuredJobs.value[readIndex]
+  nj.value = { ...NJ_INIT(), ...normalizeJobRequirements(readJob), questions: readJob.questions || [] }
+  deliveryMode.value = readJob.sourceUrl ? 'external' : 'internal'
+  cityDraft.value = ''
+}
+
+function removeStructuredJob(readIndex) {
+  if (readIndex < 0 || readIndex >= structuredJobs.value.length) return
+  const readName = structuredJobs.value[readIndex].positionName || `岗位 ${readIndex + 1}`
+  if (structuredIndex.value >= 0) {
+    structuredJobs.value[structuredIndex.value] = {
+      ...nj.value,
+      _selectionId: structuredJobs.value[structuredIndex.value]._selectionId,
+    }
+  }
+  const readSelected = structuredIndex.value
+  structuredJobs.value.splice(readIndex, 1)
+  if (!structuredJobs.value.length) {
+    structuredIndex.value = -1
+    nj.value = NJ_INIT()
+    deliveryMode.value = 'internal'
+  } else if (readIndex === readSelected) {
+    structuredIndex.value = -1
+    selectStructuredJob(Math.min(readIndex, structuredJobs.value.length - 1))
+  } else if (readIndex < readSelected) {
+    structuredIndex.value = readSelected - 1
+  }
+  toast.success(`已移除「${readName}」`)
+}
+
+function finishStructuredJob(readIndex) {
+  structuredJobs.value.splice(readIndex, 1)
+  if (!structuredJobs.value.length) {
+    v.value = 'list'
+    _resetForm()
+    return
+  }
+  structuredIndex.value = -1
+  editingId.value = null
+  selectStructuredJob(Math.min(readIndex, structuredJobs.value.length - 1))
 }
 
 async function openEdit(job) {
+  const readReturnView = v.value === 'drafts' ? 'drafts' : 'list'
   editingId.value = job.id
+  editingReturnView.value = readReturnView
   v.value = 'create'
   savingJob.value = true
   try {
@@ -1424,7 +1502,7 @@ async function openEdit(job) {
       apiJson(`/admin/job-post/${job.id}`),
       apiJson(`/admin/questionnaire/questions/${job.id}`),
     ])
-    nj.value = { ...NJ_INIT(), ...detail, questions: questions || [] }
+    nj.value = { ...NJ_INIT(), ...normalizeJobRequirements(detail), questions: questions || [] }
     deliveryMode.value = detail.sourceUrl ? 'external' : 'internal'
   } catch (error) {
     toast.error(error?.message || '岗位详情加载失败')
@@ -1446,11 +1524,14 @@ function _validate() {
 }
 function _resetForm() {
   nj.value = NJ_INIT()
+  cityDraft.value = ''
   editingId.value = null
+  editingReturnView.value = 'list'
   isExternal.value = false
   deliveryMode.value = 'internal'
   rawJobText.value = ''
   structuredJobs.value = []
+  structuredIndex.value = -1
   structureWarnings.value = []
   bulkImportFile.value = null
   bulkDragActive.value = false
@@ -1459,6 +1540,13 @@ function _resetForm() {
 function startCreate() {
   _resetForm()
   v.value = 'create'
+}
+
+function leaveJobEditor() {
+  const readReturnView = editingReturnView.value
+  _resetForm()
+  if (readReturnView === 'drafts') showDrafts()
+  else showJobs()
 }
 
 async function saveQuestions(jobId) {
@@ -1483,6 +1571,8 @@ async function persistJob(targetStatus) {
   if (!_validate()) return
   savingJob.value = true
   let jobId = editingId.value
+  const readStructuredIndex = structuredIndex.value
+  const readReturnView = editingReturnView.value
   try {
     if (!jobId) {
       const created = await apiJson('/admin/job-post', {
@@ -1501,8 +1591,14 @@ async function persistJob(targetStatus) {
       })
     }
     toast.success(targetStatus === 'PUBLISHED' ? '已发布，学生可见' : '已保存为草稿')
-    v.value = 'list'
-    _resetForm()
+    if (readStructuredIndex >= 0) finishStructuredJob(readStructuredIndex)
+    else if (readReturnView === 'drafts' && targetStatus === 'OFFLINE') {
+      _resetForm()
+      showDrafts()
+    } else {
+      v.value = 'list'
+      _resetForm()
+    }
     await refreshJobs()
   } catch (error) {
     if (!editingId.value && jobId) editingId.value = jobId
@@ -2153,4 +2249,41 @@ async function exportData() {
   color: var(--ink);
   line-height: 1.55;
 }
+.multi-options { display:flex; flex-wrap:wrap; gap:.5rem; }
+.multi-option {
+  display:flex; align-items:center; gap:.35rem; padding:.5rem .7rem;
+  border:1px solid var(--border); border-radius:10px; font-size:.78rem;
+  color:var(--ink-2); cursor:pointer;
+}
+.multi-option:has(input:checked) { border-color:var(--red); background:var(--red-light); color:var(--red); }
+.multi-entry { display:flex; gap:.5rem; }
+.multi-tags { display:flex; flex-wrap:wrap; gap:.4rem; margin-top:.55rem; }
+.multi-tag {
+  display:inline-flex; align-items:center; gap:.25rem; padding:.28rem .55rem;
+  border:1px solid var(--red-border); border-radius:999px;
+  background:var(--red-light); color:var(--red); font-size:.74rem; cursor:pointer;
+}
+.structured-job-list {
+  display:grid; grid-template-columns:repeat(2,minmax(0,1fr)); gap:.55rem; margin-top:.75rem;
+}
+.structured-job-option { position:relative; min-width:0; }
+.structured-job-select {
+  width:100%; min-height:72px; padding:.58rem 2.1rem .58rem .7rem; text-align:left;
+  border:1px solid var(--border); border-radius:var(--r-md); background:var(--bg-card);
+  color:var(--ink); cursor:pointer; display:flex; flex-direction:column; align-items:flex-start; gap:.12rem;
+}
+.structured-job-select:hover, .structured-job-select.active { border-color:var(--red); background:var(--red-light); }
+.structured-job-select span { font-size:.66rem; color:var(--ink-3); }
+.structured-job-select strong, .structured-job-select small {
+  width:100%; white-space:nowrap; overflow:hidden; text-overflow:ellipsis;
+}
+.structured-job-select strong { font-size:.78rem; }
+.structured-job-select small { font-size:.68rem; color:var(--ink-2); }
+.structured-job-remove {
+  position:absolute; top:.38rem; right:.38rem; z-index:1; width:24px; height:24px;
+  padding:0; border:0; border-radius:50%; display:flex; align-items:center;
+  justify-content:center; color:var(--ink-3); background:transparent; cursor:pointer;
+}
+.structured-job-remove:hover { color:#fff; background:var(--red); }
+@media (max-width:720px) { .structured-job-list { grid-template-columns:1fr; } }
 </style>

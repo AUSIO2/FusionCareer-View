@@ -113,7 +113,7 @@
               <input
                 ref="fileInput"
                 type="file"
-                accept=".pdf,.jpg,.jpeg,.png"
+                accept=".pdf,.docx,.jpg,.jpeg,.png"
                 :disabled="uploading || parsingFileId"
                 style="display:none"
                 @change="handleUpload"
@@ -121,7 +121,7 @@
               <div class="upload-zone" style="margin-top:1rem" :style="uploading || parsingFileId ? 'opacity:.6;pointer-events:none' : ''" @click="fileInput?.click()">
                 <i :class="['ti', uploading ? 'ti-loader-2' : 'ti-cloud-upload']" />
                 <div class="uz-title">{{ uploading ? (updateProfileOnUpload ? '正在上传并解析…' : '正在上传…') : '上传新简历' }}</div>
-                <div class="uz-hint">支持 PDF、JPG、PNG，单文件不超过 20 MB；个人总配额 30 MB（已用 {{ quotaUsedMb }} / {{ quotaTotalMb }} MB）</div>
+                <div class="uz-hint">支持 PDF、DOCX、JPG、PNG，单文件不超过 20 MB；个人总配额 30 MB（已用 {{ quotaUsedMb }} / {{ quotaTotalMb }} MB）</div>
               </div>
               <label style="display:flex;align-items:flex-start;gap:.5rem;margin-top:.75rem;font-size:.78rem;color:var(--ink-2);cursor:pointer">
                 <input type="checkbox" v-model="updateProfileOnUpload" :disabled="uploading || parsingFileId" style="margin-top:.15rem" />
@@ -173,7 +173,7 @@
               <div v-else-if="!filteredApps.length" style="padding:1rem;color:var(--ink-3);font-size:.8rem">暂无投递记录</div>
               <template v-else>
               <div v-for="a in filteredApps" :key="a.id" class="app-row" @click="openJobDetail(a)">
-                <div class="job-logo" style="width:36px;height:36px">{{ a.abbr }}</div>
+                <JobCategoryIcon :category="a.category" :size="36" />
                 <div style="flex:1;min-width:0">
                   <div style="display:flex;align-items:center;gap:.45rem;flex-wrap:wrap">
                     <span style="font-size:.867rem;font-weight:600;color:var(--ink)">{{ a.title }}</span>
@@ -246,7 +246,7 @@
                   </div>
                   <div class="resume-picker-section-label" style="margin-top:.6rem">或上传本地文件</div>
                   <div class="resume-picker-item resume-picker-upload" @click="triggerEditFile(q.id)">
-                    <input type="file" style="display:none" :ref="el => { editFileRefs[q.id] = el }" accept=".pdf,.jpg,.jpeg,.png" @change="e => handleEditFile(q.id, e)" />
+                    <input type="file" style="display:none" :ref="el => { editFileRefs[q.id] = el }" accept=".pdf,.docx,.jpg,.jpeg,.png" @change="e => handleEditFile(q.id, e)" />
                     <i class="ti ti-cloud-upload" />
                     <span>点击上传新简历（PDF / 图片）</span>
                   </div>
@@ -293,6 +293,7 @@
 import { ref, computed, watch, onMounted, onUnmounted } from 'vue'
 import { useRoute, useRouter } from 'vue-router'
 import UserNavbar from '@/components/UserNavbar.vue'
+import JobCategoryIcon from '@/components/JobCategoryIcon.vue'
 import { useToast } from '@/composables/useToast'
 import { apiJson, apiForm, apiDownloadBlob, logoutSession } from '@/lib/api'
 import {
@@ -387,7 +388,7 @@ function mapApplicationItem(item) {
     jobPostId: item.jobPostId,
     title,
     company,
-    abbr: company ? company.charAt(0) : '?',
+    category: item.jobCategory || 'OTHER',
     deadline: item.questionnaireDeadline,
     expired: !!item.expired,
     sourceUrl: item.sourceUrl,
@@ -630,7 +631,7 @@ const resumeFiles = ref([])
 const quotaUsedMb = ref('0')
 const quotaTotalMb = ref('30')
 const fileInput = ref(null)
-const updateProfileOnUpload = ref(false)
+const updateProfileOnUpload = ref(true)
 const uploading = ref(false)
 const parsingFileId = ref(null)
 const parseElapsedSeconds = ref(0)

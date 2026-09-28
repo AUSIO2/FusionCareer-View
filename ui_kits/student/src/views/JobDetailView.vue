@@ -19,7 +19,7 @@
           <!-- 公司头部 -->
           <div class="card card-p" style="margin-bottom:1rem">
             <div style="display:flex;align-items:center;gap:1rem">
-              <div class="job-logo" style="width:52px;height:52px;font-size:1.3rem">{{ abbr }}</div>
+              <JobCategoryIcon :category="job.jobCategory" :size="52" />
               <div>
                 <div style="font-size:1.15rem;font-weight:700;color:var(--ink);margin-bottom:.2rem">{{ job.positionName }}</div>
                 <div style="font-size:.867rem;color:var(--ink-2)">{{ job.companyName }}</div>
@@ -30,7 +30,7 @@
           <div class="card card-p">
             <div class="ds-title"><i class="ti ti-info-circle"></i>基本信息</div>
             <div class="info-grid">
-              <div v-if="job.workCity" class="info-item"><i class="ti ti-map-pin"></i>{{ job.workCity }}</div>
+              <div v-if="cityLabel" class="info-item"><i class="ti ti-map-pin"></i>{{ cityLabel }}</div>
               <div v-if="job.salaryDisplay" class="info-item"><i class="ti ti-coin"></i>{{ job.salaryDisplay }}</div>
               <div v-if="job.workMode" class="info-item"><i class="ti ti-building"></i>{{ workModeLabel }}</div>
               <div v-if="job.workStartDate || job.workEndDate" class="info-item"><i class="ti ti-calendar-event"></i>工作日期 {{ workPeriod }}</div>
@@ -42,10 +42,10 @@
               <p style="font-size:.833rem;color:var(--ink-2);line-height:1.8;white-space:pre-wrap">{{ job.jobDesc }}</p>
               <div class="divider"></div>
             </div>
-            <div v-if="job.reqEduLevel || job.reqMajor || job.reqSkills || job.reqOther">
+            <div v-if="eduLabel || job.reqMajor || job.reqSkills || job.reqOther">
               <div class="ds-title"><i class="ti ti-checklist"></i>岗位要求</div>
               <ul style="padding-left:1.25rem">
-                <li v-if="job.reqEduLevel" style="font-size:.833rem;color:var(--ink-2);line-height:1.9;list-style:disc">学历要求：{{ eduLabel }}</li>
+                <li v-if="eduLabel" style="font-size:.833rem;color:var(--ink-2);line-height:1.9;list-style:disc">学历要求：{{ eduLabel }}</li>
                 <li v-if="job.reqMajor"    style="font-size:.833rem;color:var(--ink-2);line-height:1.9;list-style:disc">专业要求：{{ job.reqMajor }}</li>
                 <li v-if="job.reqSkills"   style="font-size:.833rem;color:var(--ink-2);line-height:1.9;list-style:disc">技能要求：{{ job.reqSkills }}</li>
                 <li v-if="job.reqOther"    style="font-size:.833rem;color:var(--ink-2);line-height:1.9;list-style:disc">其他要求：{{ job.reqOther }}</li>
@@ -138,7 +138,7 @@
                 </div>
                 <div class="resume-picker-section-label" style="margin-top:.6rem">或上传本地文件（≤20MB）</div>
                 <div class="resume-picker-item resume-picker-upload" @click="triggerFile(q.id)">
-                  <input type="file" style="display:none" :ref="el => { fileRefs[q.id] = el }" accept=".pdf,.jpg,.jpeg,.png" @change="e => handleFile(q.id, e)" />
+                  <input type="file" style="display:none" :ref="el => { fileRefs[q.id] = el }" accept=".pdf,.docx,.jpg,.jpeg,.png" @change="e => handleFile(q.id, e)" />
                   <i class="ti ti-cloud-upload" />
                   <span>点击上传（PDF / 图片）</span>
                 </div>
@@ -160,8 +160,10 @@
 import { ref, computed, onMounted, watch } from 'vue'
 import { useRoute } from 'vue-router'
 import UserNavbar from '@/components/UserNavbar.vue'
+import JobCategoryIcon from '@/components/JobCategoryIcon.vue'
 import { useToast } from '@/composables/useToast'
 import { apiJson } from '@/lib/api'
+import { formatCities, formatEducation } from '@/lib/jobRequirements.mjs'
 import {
   loadQuestionnaireBundle,
   loadMyAnswerRecord,
@@ -212,14 +214,12 @@ const MOCK = [
   { id: 13, positionName: '国际传播编辑',         companyName: '光明日报',   workCity: '北京', workEndDate: '2025-08-10', salaryDisplay: '面议',       workMode: 'OFFLINE', recruitType: 'CAMPUS_RECRUITMENT', sourceUrl: '',                           jobDesc: '负责光明日报国际版及海外平台内容编辑，参与中国故事的对外传播。',                                                                                             reqEduLevel: 'ACADEMIC_MASTER',    reqMajor: '新闻传播、外语类',     reqSkills: '英文写作能力强，有海外学习/生活经历优先' },
 ]
 
-const abbr = computed(() => (job.value?.companyName ? job.value.companyName.charAt(0) : '职'))
-
 const WORK_MODE_MAP = { ONLINE: '线上', OFFLINE: '线下', HYBRID: '线上线下均可' }
-const EDU_MAP = { UNDERGRADUATE: '本科生', ACADEMIC_MASTER: '学术硕士研究生', PROFESSIONAL_MASTER: '专业硕士研究生', DOCTORAL: '博士研究生' }
 const RECRUIT_MAP = { BIG_INTERNSHIP: '大实习', SMALL_INTERNSHIP: '小实习', DAILY_INTERNSHIP: '日常实习', CAMPUS_RECRUITMENT: '应届生招聘', CAMPUS_SCREENING: '应届生摸排', OTHER: '其他' }
 
 const workModeLabel = computed(() => (job.value ? (WORK_MODE_MAP[job.value.workMode] || '') : ''))
-const eduLabel = computed(() => (job.value ? (EDU_MAP[job.value.reqEduLevel] || '') : ''))
+const cityLabel = computed(() => formatCities(job.value || {}))
+const eduLabel = computed(() => formatEducation(job.value || {}))
 const recruitLabel = computed(() => (job.value ? (RECRUIT_MAP[job.value.recruitType] || '') : ''))
 const jobDeadline = computed(() => (job.value?.applicationDeadline || '').slice(0, 10))
 const workPeriod = computed(() => {

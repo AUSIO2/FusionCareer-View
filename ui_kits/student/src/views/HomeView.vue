@@ -151,11 +151,11 @@
         <!-- 岗位列表 -->
         <div v-else style="display:flex;flex-direction:column;gap:.35rem">
           <RouterLink v-for="j in jobs" :key="j.id" class="job-card" :to="'/job/'+j.id">
-            <div class="job-logo">{{ j.abbr }}</div>
+            <JobCategoryIcon :category="j.category" />
             <div style="flex:1;min-width:0">
               <div style="display:flex;align-items:center;gap:.45rem;margin-bottom:.25rem;flex-wrap:wrap">
                 <span class="job-title">{{ j.title }}</span>
-                <span v-if="j.recruitBadge" :class="['badge', j.recruitBadge]">{{ j.recruit }}</span>
+                <span v-if="j.recruit" class="badge badge-gray">{{ j.recruit }}</span>
               </div>
               <div class="job-meta">
                 <span>{{ j.company }}</span>
@@ -199,8 +199,10 @@ import { ref, computed, onMounted, onUnmounted } from 'vue'
 import { useRouter } from 'vue-router'
 import UserNavbar from '@/components/UserNavbar.vue'
 import RegionSelect from '@/components/RegionSelect.vue'
+import JobCategoryIcon from '@/components/JobCategoryIcon.vue'
 import { apiJson } from '@/lib/api'
 import { compactPages } from '@/lib/pagination.mjs'
+import { formatCities } from '@/lib/jobRequirements.mjs'
 
 const router = useRouter()
 const allowMockFallback = import.meta.env.DEV && import.meta.env.VITE_DISABLE_JOB_MOCK !== '1'
@@ -272,6 +274,21 @@ const MODE_TO_API = {
   线上: 'ONLINE',
   线上线下均可: 'HYBRID',
 }
+const PERIOD_TO_API = {
+  '1 个月以内': 'LESS_THAN_THREE_MONTHS',
+  '1–3 个月': 'LESS_THAN_THREE_MONTHS',
+  '3–6 个月': 'THREE_TO_SIX_MONTHS',
+  '6 个月以上': 'MORE_THAN_SIX_MONTHS',
+}
+const DAYS_TO_API = { '3天': 'ONE_TO_TWO_DAYS', '4天': 'THREE_TO_FOUR_DAYS', '5天': 'FIVE_DAYS' }
+const PERIOD_LABEL = { LESS_THAN_THREE_MONTHS:'3个月以内', THREE_TO_SIX_MONTHS:'3–6个月', MORE_THAN_SIX_MONTHS:'6个月以上' }
+const DAYS_LABEL = { ONE_TO_TWO_DAYS:'1–2天/周', THREE_TO_FOUR_DAYS:'3–4天/周', FIVE_DAYS:'5天/周' }
+const SALARY_RANGE = {
+  '100元/天以下': { salaryMax: 99 },
+  '100–150元/天': { salaryMin: 100, salaryMax: 150 },
+  '150–200元/天': { salaryMin: 151, salaryMax: 200 },
+  '200元/天以上': { salaryMin: 201 },
+}
 
 function toggleJobType(v) {
   jobtypeF.value = jobtypeF.value === v ? '' : v
@@ -342,13 +359,8 @@ const paginationItems = computed(() => compactPages(page.value, totalPages.value
 
 function setSort(s) { sortBy.value = s; page.value = 1; fetchJobs() }
 function goPage(n)  { page.value = n; fetchJobs() }
-function abbrOf(n)  { return n ? n.charAt(0) : '职' }
 function fmtDate(s) { return s ? s.slice(5,10) : '' }
 
-const RECRUIT_BADGE = {
-  '大实习':'badge-blue', '小实习':'badge-green',
-  '日常实习':'badge-amber', '应届招聘':'badge-red',
-}
 function recruitLabel(t) {
   const m = { BIG_INTERNSHIP:'大实习', SMALL_INTERNSHIP:'小实习', DAILY_INTERNSHIP:'日常实习', CAMPUS_RECRUITMENT:'应届招聘', CAMPUS_SCREENING:'应届招聘', OTHER:'' }
   return m[t] || ''
@@ -373,7 +385,19 @@ const MOCK = [
   { id:12, abbr:'路', title:'路透社多媒体实习',       company:'Reuters',        city:'香港', province:'海外', jobtype:'新闻媒体', recruit:'小实习',   duration:'3–6 个月', days:'4天', salary:'200元/天以上',  mode:'线上线下均可', dl:'08-15', pub:'05-02', rec:false },
 ]
 
+let previousFilterKey = ''
+let jobsRequestId = 0
+
 async function fetchJobs() {
+  const readFilterKey = JSON.stringify([
+    kw.value, provinceF.value, cityF.value, jobtypeF.value, recruitF.value,
+    durationF.value, daysF.value, salaryF.value, modeF.value,
+  ])
+  if (readFilterKey !== previousFilterKey) {
+    page.value = 1
+    previousFilterKey = readFilterKey
+  }
+  const readRequestId = ++jobsRequestId
   loading.value = true
   displayJobError.value = ''
   try {
@@ -388,35 +412,39 @@ async function fetchJobs() {
     if (modeF.value && MODE_TO_API[modeF.value]) {
       params.set('workMode', MODE_TO_API[modeF.value])
     }
+    if (durationF.value && PERIOD_TO_API[durationF.value]) params.set('workPeriodType', PERIOD_TO_API[durationF.value])
+    if (daysF.value && DAYS_TO_API[daysF.value]) params.set('workDurationType', DAYS_TO_API[daysF.value])
+    if (salaryF.value) {
+      const readSalary = SALARY_RANGE[salaryF.value]
+      if (readSalary?.salaryMin != null) params.set('salaryMin', readSalary.salaryMin)
+      if (readSalary?.salaryMax != null) params.set('salaryMax', readSalary.salaryMax)
+    }
+    params.set('sortBy', sortBy.value === 'deadline' ? 'DEADLINE' : 'NEWEST')
     const pageResult = await apiJson(`/job/list?${params}`)
+    if (readRequestId !== jobsRequestId) return
     const recs = pageResult?.list || pageResult?.records || []
     total.value = pageResult?.total ?? recs.length
     let mapped = recs.map((j) => ({
       id: j.id,
-      abbr: abbrOf(j.companyName),
+      category: j.jobCategory || 'OTHER',
       title: j.positionName,
       company: j.companyName,
-      city: j.workCity || '',
+      city: formatCities(j),
       province: j.workProvince || '',
       jobtype: JOB_CATEGORY_LABEL[j.jobCategory] || '其他',
       recruit: recruitLabel(j.recruitType),
-      duration: '',
-      days: '',
+      duration: j.workPeriodType || '',
+      days: j.workDurationType || '',
       salary: j.salaryDisplay || '',
       mode: workModeLabel(j.workMode),
       dl: fmtDate(j.applicationDeadline),
       pub: (j.createdAt && String(j.createdAt).slice(0, 10)) || '',
       rec: false,
-      recruitBadge: RECRUIT_BADGE[recruitLabel(j.recruitType)] || '',
-      l2tags: [j.salaryDisplay, workModeLabel(j.workMode)].filter(Boolean),
+      l2tags: [PERIOD_LABEL[j.workPeriodType], DAYS_LABEL[j.workDurationType], j.salaryDisplay, workModeLabel(j.workMode)].filter(Boolean),
     }))
-    if (durationF.value) mapped = mapped.filter((j) => j.duration === durationF.value)
-    if (daysF.value) mapped = mapped.filter((j) => j.days === daysF.value)
-    if (salaryF.value) mapped = mapped.filter((j) => j.salary === salaryF.value)
-    if (sortBy.value === 'deadline') mapped.sort((a, b) => (a.dl || '').localeCompare(b.dl || ''))
-    else mapped.sort((a, b) => (b.pub || '').localeCompare(a.pub || ''))
     jobs.value = mapped
   } catch (e) {
+    if (readRequestId !== jobsRequestId) return
     if (!allowMockFallback) {
       displayJobError.value = e?.message || '加载岗位失败'
       jobs.value = []
@@ -439,10 +467,12 @@ async function fetchJobs() {
     const s = (page.value-1) * pageSize
     jobs.value = f.slice(s, s+pageSize).map(j => ({
       ...j,
-      recruitBadge: RECRUIT_BADGE[j.recruit] || '',
+      category: JOB_CATEGORY_TO_API[j.jobtype] || 'OTHER',
       l2tags: [j.duration, j.days, j.salary, j.mode].filter(Boolean),
     }))
-  } finally { loading.value = false }
+  } finally {
+    if (readRequestId === jobsRequestId) loading.value = false
+  }
 }
 onMounted(() => {
   fetchJobs()
