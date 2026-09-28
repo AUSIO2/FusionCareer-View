@@ -20,10 +20,11 @@
         ><span>好学</span><span>力行</span></div>
       </div>
 
-      <p class="cover-caption">
-        <span class="caption-rule" aria-hidden="true" />
-        <span>校园里的一个秋日。</span>
-      </p>
+      <!-- Quote verified against https://news.fudan.edu.cn/2024/1016/c5a142563/page.htm -->
+      <figure class="cover-quote">
+        <blockquote>最优美、最具力量的文字，出自我们的手。</blockquote>
+        <figcaption><span class="quote-rule" aria-hidden="true" /><span>吴晓波</span></figcaption>
+      </figure>
     </section>
 
     <main class="login-panel" aria-labelledby="entry-title">
@@ -33,7 +34,7 @@
             <img class="card-seal" src="/brand/fudan-seal.svg" alt="" aria-hidden="true" width="42" height="42" />
             <h2 id="entry-title">登录</h2>
           </div>
-          <GinkgoArtwork :active-target="isAdminTarget ? 'admin' : 'user'" />
+          <GinkgoArtwork />
         </div>
 
         <div class="login-form">
@@ -248,16 +249,17 @@ onUnmounted(() => window.removeEventListener('pageshow', restoreLoginButton))
   letter-spacing: .25em;
 }
 .college-motto span { writing-mode: vertical-rl; }
-.cover-caption {
-  min-height: 32px;
-  width: fit-content;
-  display: inline-flex;
+.cover-quote { max-width: 560px; margin: 0; }
+.cover-quote blockquote { margin: 0; font-size: 15px; font-weight: 400; letter-spacing: .025em; line-height: 1.8; }
+.cover-quote figcaption {
+  display: flex;
   align-items: center;
   gap: 10px;
+  margin-top: 8px;
   font-size: 12px;
   letter-spacing: .06em;
 }
-.caption-rule { width: 26px; height: 1px; background: currentColor; opacity: .7; }
+.quote-rule { width: 22px; height: 1px; background: currentColor; opacity: .7; }
 .login-panel {
   display: flex;
   align-items: center;
@@ -384,11 +386,12 @@ onUnmounted(() => window.removeEventListener('pageshow', restoreLoginButton))
   .campus-cover { min-height: 340px; padding: 0 28px 22px; }
   .cover-header { min-height: 82px; }
   .college-brand img { width: 36px; height: 36px; }
-  .cover-content { min-height: 208px; padding: 26px 0; align-items: flex-end; }
+  .cover-content { min-height: 186px; padding: 26px 0; align-items: flex-end; }
   .cover-title p { margin-bottom: 14px; font-size: 12px; letter-spacing: .08em; }
   .cover-title h1 { font-size: 44px; }
   .college-motto { font-size: 23px; padding-top: 6px; padding-bottom: 8px; }
-  .cover-caption { font-size: 11px; }
+  .cover-quote blockquote { font-size: 14px; }
+  .cover-quote figcaption { font-size: 11px; }
   .campus-photo::before { background-position: center 55%; }
   .login-panel { flex: 1; align-items: flex-start; padding: 28px; border-left: 0; }
   .login-content { max-width: 440px; }
@@ -404,7 +407,7 @@ onUnmounted(() => window.removeEventListener('pageshow', restoreLoginButton))
   .cover-header { min-height: 76px; gap: 12px; }
   .college-brand span { font-size: 14px; }
   .college-brand img { width: 32px; height: 32px; }
-  .cover-content { min-height: 176px; }
+  .cover-content { min-height: 154px; }
   .cover-title h1 { font-size: 38px; }
   .college-motto { font-size: 20px; gap: 5px; padding-left: 10px; }
   .login-panel { padding: 22px 16px; }

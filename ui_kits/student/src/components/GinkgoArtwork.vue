@@ -4,9 +4,8 @@
     viewBox="0 0 260 190"
     fill="none"
     aria-hidden="true"
-    :data-active-target="activeTarget"
   >
-    <g class="ginkgo-leaf leaf-admin" :class="{ active: activeTarget === 'admin' }">
+    <g class="ginkgo-leaf leaf-large">
       <path class="leaf-stem" d="M181 119C179 138 184 160 177 181" />
       <path
         class="leaf-shape"
@@ -18,7 +17,7 @@
       </g>
     </g>
 
-    <g class="ginkgo-leaf leaf-student" :class="{ active: activeTarget === 'user' }">
+    <g class="ginkgo-leaf leaf-small">
       <path class="leaf-stem" d="M92 138C98 156 111 170 115 184" />
       <path
         class="leaf-shape"
@@ -32,53 +31,32 @@
   </svg>
 </template>
 
-<script setup>
-defineProps({
-  activeTarget: {
-    type: String,
-    default: 'user',
-  },
-})
-</script>
-
 <style scoped>
 .ginkgo-drawing {
   overflow: visible;
   pointer-events: none;
 }
 .ginkgo-leaf {
-  --leaf-fill: #d5c79a;
-  --leaf-opacity: .16;
-  --leaf-outline: #b2a47a;
-  --leaf-vein: #b3a37a;
-  opacity: .58;
-  transform-box: view-box;
-  transition: transform 680ms cubic-bezier(.22, .8, .3, 1), opacity 520ms ease;
-}
-.leaf-student {
-  transform-origin: 115px 184px;
-  transform: translate(-2px, 7px) rotate(-12deg) scale(.94);
-}
-.leaf-admin {
-  transform-origin: 177px 181px;
-  transform: translate(0, 7px) rotate(9deg) scale(.94);
-}
-.ginkgo-leaf.active {
   --leaf-fill: #d6b55b;
-  --leaf-opacity: .58;
-  --leaf-outline: #a48639;
-  --leaf-vein: #a08642;
-  opacity: 1;
+  --leaf-opacity: .3;
+  --leaf-outline: #ad985c;
+  --leaf-vein: #ad985c;
+  transform-box: view-box;
 }
-.leaf-student.active { transform: translate(0, -5px) rotate(-3deg) scale(1.025); }
-.leaf-admin.active { transform: translate(0, -5px) rotate(0deg) scale(1.025); }
+.leaf-small {
+  transform-origin: 115px 184px;
+  transform: rotate(-6deg);
+}
+.leaf-large {
+  transform-origin: 177px 181px;
+  transform: rotate(2deg);
+}
 .leaf-shape {
   fill: var(--leaf-fill, #d2bc79);
   fill-opacity: var(--leaf-opacity, .24);
   stroke: var(--leaf-outline, #ad985c);
   stroke-width: .9;
   stroke-linejoin: round;
-  transition: fill 580ms ease, fill-opacity 580ms ease, stroke 580ms ease;
 }
 .leaf-veins {
   stroke: var(--leaf-vein, #ad985c);
@@ -86,15 +64,10 @@ defineProps({
   stroke-opacity: .68;
   stroke-linecap: round;
   stroke-linejoin: round;
-  transition: stroke 580ms ease;
 }
 .leaf-stem {
   stroke: var(--leaf-outline, #ad985c);
   stroke-width: 1.25;
   stroke-linecap: round;
-  transition: stroke 580ms ease;
-}
-@media (prefers-reduced-motion: reduce) {
-  .ginkgo-leaf, .leaf-shape, .leaf-veins, .leaf-stem { transition: none; }
 }
 </style>
