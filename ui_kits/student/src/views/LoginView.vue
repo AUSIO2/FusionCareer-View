@@ -1,13 +1,6 @@
 <template>
   <div class="login-page">
-    <section class="login-scene" aria-label="校园风景插画">
-      <div class="scene-topline">
-        <span>FUDAN JOURNALISM SCHOOL</span>
-      </div>
-      <div class="scene-copy">
-        <h1>复新生涯</h1>
-      </div>
-    </section>
+    <section class="login-scene" aria-label="复旦大学新闻学院秋景" />
 
     <main class="login-panel">
       <header class="panel-header">
@@ -19,8 +12,11 @@
       </header>
 
       <section class="login-content">
-        <h2>{{ isAdminTarget ? '管理端登录' : '登录复新生涯' }}</h2>
-        <p class="login-wish">祝你今天好运</p>
+        <div v-if="isAdminTarget" class="access-label">管理端</div>
+        <h1>复新生涯</h1>
+        <p class="login-tagline">
+          {{ isAdminTarget ? '岗位、问卷与投递管理' : '从新闻学院，走向更大的现场。' }}
+        </p>
 
         <div v-if="errorMessage" class="login-alert" role="alert">
           <i class="ti ti-alert-circle" />
@@ -28,7 +24,7 @@
         </div>
 
         <button class="uis-button" type="button" :disabled="loggingIn" @click="loginCurrentTarget">
-          <span>{{ loggingIn ? '正在跳转…' : '使用 UIS 登录' }}</span>
+          <span>{{ loggingIn ? '正在跳转…' : '统一身份认证登录' }}</span>
           <i :class="['ti', loggingIn ? 'ti-loader-2 login-spinner' : 'ti-arrow-up-right']" />
         </button>
 
@@ -111,26 +107,6 @@ function switchTarget() {
     linear-gradient(0deg, rgba(38,20,15,.72) 0%, rgba(45,25,18,.12) 62%, transparent 100%),
     linear-gradient(140deg, rgba(255,215,156,.13), transparent 55%);
 }
-.scene-topline {
-  display: flex;
-  justify-content: space-between;
-  gap: 1rem;
-  padding-bottom: .9rem;
-  border-bottom: 1px solid rgba(255,255,255,.5);
-  font-size: .66rem;
-  font-weight: 600;
-  letter-spacing: .15em;
-}
-.scene-copy { max-width: 650px; }
-.scene-copy h1 {
-  margin: 0;
-  font-family: var(--font-serif);
-  font-size: clamp(3.6rem, 7vw, 7.4rem);
-  font-weight: 900;
-  line-height: .95;
-  letter-spacing: -.055em;
-  text-shadow: 0 2px 24px rgba(22,10,8,.25);
-}
 
 .login-panel {
   min-height: 100vh;
@@ -156,20 +132,30 @@ function switchTarget() {
   margin: auto 0;
   padding: 3rem 0;
 }
-.login-content h2 {
+.access-label {
+  width: fit-content;
+  margin-bottom: .8rem;
+  padding: .22rem .55rem;
+  border: 1px solid #c7bdb2;
+  color: #766d64;
+  font-size: .67rem;
+  font-weight: 600;
+  letter-spacing: .08em;
+}
+.login-content h1 {
   margin: 0;
   font-family: var(--font-serif);
-  font-size: clamp(2.2rem, 4vw, 3.6rem);
+  font-size: clamp(2.6rem, 4.5vw, 4.2rem);
   font-weight: 800;
   line-height: 1.05;
   letter-spacing: -.035em;
 }
-.login-wish {
-  margin: .75rem 0 2rem;
-  color: #756d65;
+.login-tagline {
+  margin: .85rem 0 2.2rem;
+  color: #6f675f;
   font-family: var(--font-serif);
-  font-size: .9rem;
-  letter-spacing: .06em;
+  font-size: .95rem;
+  letter-spacing: .04em;
 }
 .login-alert {
   display: flex;
@@ -235,8 +221,6 @@ function switchTarget() {
 @media (max-width: 900px) {
   .login-page { display: block; }
   .login-scene { min-height: 38vh; padding: 1.25rem 1.2rem 1.8rem; }
-  .scene-topline span:last-child { display: none; }
-  .scene-copy h1 { font-size: clamp(3rem, 14vw, 5rem); }
   .login-panel { min-height: 62vh; padding: 1.4rem 1.25rem 1rem; border-left: 0; }
   .login-content { max-width: none; padding: 2.5rem 0; }
 }
