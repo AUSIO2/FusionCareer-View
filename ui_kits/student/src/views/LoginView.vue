@@ -5,18 +5,34 @@
     <main class="login-panel">
       <header class="panel-header">
         <img class="fudan-seal" src="/brand/fudan-seal.svg" alt="复旦大学校徽" />
-        <div>
-          <strong>复旦大学新闻学院</strong>
-          <span>就业与职业发展平台</span>
-        </div>
+        <strong>复旦大学新闻学院</strong>
       </header>
 
       <section class="login-content">
-        <div v-if="isAdminTarget" class="access-label">管理端</div>
         <h1>复新生涯</h1>
-        <p class="login-tagline">
-          {{ isAdminTarget ? '岗位、问卷与投递管理' : '从新闻学院，走向更大的现场。' }}
-        </p>
+
+        <div class="target-picker" role="group" aria-label="选择登录入口">
+          <button
+            type="button"
+            :class="{ active: !isAdminTarget }"
+            :aria-pressed="!isAdminTarget"
+            :disabled="loggingIn"
+            @click="setTarget('user')"
+          >
+            <i class="ti ti-user" />
+            <span>学生入口</span>
+          </button>
+          <button
+            type="button"
+            :class="{ active: isAdminTarget }"
+            :aria-pressed="isAdminTarget"
+            :disabled="loggingIn"
+            @click="setTarget('admin')"
+          >
+            <i class="ti ti-settings" />
+            <span>管理入口</span>
+          </button>
+        </div>
 
         <div v-if="errorMessage" class="login-alert" role="alert">
           <i class="ti ti-alert-circle" />
@@ -24,20 +40,10 @@
         </div>
 
         <button class="uis-button" type="button" :disabled="loggingIn" @click="loginCurrentTarget">
-          <span>{{ loggingIn ? '正在跳转…' : '统一身份认证登录' }}</span>
+          <span>{{ loggingIn ? '正在跳转…' : (isAdminTarget ? '登录管理端' : '登录学生端') }}</span>
           <i :class="['ti', loggingIn ? 'ti-loader-2 login-spinner' : 'ti-arrow-up-right']" />
         </button>
-
-        <button class="target-switch" type="button" :disabled="loggingIn" @click="switchTarget">
-          <span>{{ isAdminTarget ? '返回学生入口' : '管理人员入口' }}</span>
-          <i class="ti ti-arrow-right" />
-        </button>
       </section>
-
-      <footer class="panel-footer">
-        <span>© {{ currentYear }} 复旦大学新闻学院</span>
-        <span>FusionCareer</span>
-      </footer>
     </main>
   </div>
 </template>
@@ -49,7 +55,6 @@ import { useRoute, useRouter } from 'vue-router'
 const route = useRoute()
 const router = useRouter()
 const loggingIn = ref(false)
-const currentYear = new Date().getFullYear()
 const isAdminTarget = computed(() => route.query.target === 'admin')
 const errorMessage = computed(() => ({
   sso_login_failed: '统一身份认证未完成，请重新尝试。',
@@ -62,8 +67,8 @@ function loginCurrentTarget() {
   window.location.assign(`/fudan/login?target=${isAdminTarget.value ? 'admin' : 'user'}`)
 }
 
-function switchTarget() {
-  router.replace({ path: '/login', query: isAdminTarget.value ? {} : { target: 'admin' } })
+function setTarget(target) {
+  router.replace({ path: '/login', query: target === 'admin' ? { target: 'admin' } : {} })
 }
 </script>
 
@@ -124,39 +129,51 @@ function switchTarget() {
   border-bottom: 1px solid #d8d0c5;
 }
 .fudan-seal { width: 52px; height: 52px; object-fit: contain; }
-.panel-header strong { display: block; font-family: var(--font-serif); font-size: .95rem; }
-.panel-header span { display: block; margin-top: .18rem; color: #776f67; font-size: .72rem; letter-spacing: .04em; }
+.panel-header strong { font-size: 1rem; font-weight: 650; }
 .login-content {
   width: 100%;
   max-width: 450px;
   margin: auto 0;
   padding: 3rem 0;
 }
-.access-label {
-  width: fit-content;
-  margin-bottom: .8rem;
-  padding: .22rem .55rem;
-  border: 1px solid #c7bdb2;
-  color: #766d64;
-  font-size: .67rem;
-  font-weight: 600;
-  letter-spacing: .08em;
-}
 .login-content h1 {
   margin: 0;
-  font-family: var(--font-serif);
-  font-size: clamp(2.6rem, 4.5vw, 4.2rem);
-  font-weight: 800;
-  line-height: 1.05;
-  letter-spacing: -.035em;
+  font-family: var(--font-sans);
+  font-size: clamp(2.2rem, 3.5vw, 3.2rem);
+  font-weight: 700;
+  line-height: 1.15;
+  letter-spacing: -.02em;
 }
-.login-tagline {
-  margin: .85rem 0 2.2rem;
-  color: #6f675f;
-  font-family: var(--font-serif);
-  font-size: .95rem;
-  letter-spacing: .04em;
+.target-picker {
+  display: grid;
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+  gap: .65rem;
+  margin: 2rem 0 1rem;
 }
+.target-picker button {
+  min-height: 72px;
+  display: flex;
+  align-items: center;
+  gap: .65rem;
+  padding: 0 1rem;
+  border: 1px solid #d4cbc0;
+  border-radius: 5px;
+  background: #fbf8f2;
+  color: #615951;
+  font-size: .9rem;
+  font-weight: 600;
+  cursor: pointer;
+  transition: border-color .18s ease, background .18s ease, color .18s ease;
+}
+.target-picker button:hover:not(:disabled) { border-color: #a89b8e; }
+.target-picker button.active {
+  border-color: #8c151b;
+  background: #fff;
+  color: #8c151b;
+  box-shadow: inset 0 0 0 1px #8c151b;
+}
+.target-picker i { font-size: 1.15rem; }
+.target-picker button:disabled { cursor: wait; opacity: .7; }
 .login-alert {
   display: flex;
   align-items: flex-start;
@@ -189,34 +206,6 @@ function switchTarget() {
 .uis-button:disabled { cursor: wait; opacity: .72; }
 .login-spinner { animation: login-spin .8s linear infinite; }
 @keyframes login-spin { to { transform: rotate(360deg); } }
-.target-switch {
-  width: 100%;
-  display: flex;
-  align-items: center;
-  justify-content: space-between;
-  margin-top: 2.4rem;
-  padding: .8rem 0;
-  border: 0;
-  border-top: 1px solid #d8d0c5;
-  border-bottom: 1px solid #d8d0c5;
-  background: transparent;
-  color: #554e48;
-  font: 500 .78rem/1 var(--font-sans);
-  cursor: pointer;
-}
-.target-switch:hover { color: #8c151b; }
-.target-switch i { transition: transform .18s ease; }
-.target-switch:hover i { transform: translateX(3px); }
-.panel-footer {
-  display: flex;
-  justify-content: space-between;
-  gap: 1rem;
-  padding-top: 1rem;
-  border-top: 1px solid #d8d0c5;
-  color: #8a8178;
-  font-size: .66rem;
-  letter-spacing: .04em;
-}
 
 @media (max-width: 900px) {
   .login-page { display: block; }
@@ -225,6 +214,6 @@ function switchTarget() {
   .login-content { max-width: none; padding: 2.5rem 0; }
 }
 @media (prefers-reduced-motion: reduce) {
-  .uis-button, .target-switch i, .login-spinner { animation: none; transition: none; }
+  .uis-button, .target-picker button, .login-spinner { animation: none; transition: none; }
 }
 </style>
